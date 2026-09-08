@@ -169,7 +169,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 3 — Persistence
 
-- [ ] 14. SQLite schema
+- [x] 14. SQLite schema
   - **Objective:** Define tables with exact numeric columns and constraints.
   - **Dependencies:** Task 5.
   - **Scope:** all tables from design §7; UUID `TEXT NOT NULL` primary/foreign keys (no INTEGER/AUTOINCREMENT); INTEGER paise/scaled columns; FK, partial unique invoice_number, status CHECKs; per-scope `high_water_mark`.
