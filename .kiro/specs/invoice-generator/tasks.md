@@ -75,7 +75,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** property tests pass with exact equality.
   - **DoD:** no float in money paths. _Requirements: 5; DECISIONS D-004, D-005._
 
-- [ ] 4a. UUID entity-id strategy
+- [x] 4a. UUID entity-id strategy
   - **Objective:** Application-generated UUID4 identity with an injectable generator.
   - **Dependencies:** Task 2.
   - **Scope:** `IdGenerator` port (default UUID4); canonical-TEXT serialization + format validator; test UUID factory.
