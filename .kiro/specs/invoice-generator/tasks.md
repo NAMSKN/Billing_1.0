@@ -66,7 +66,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** unit tests pass.
   - **DoD:** enums used by later tasks; no lifecycle/payment mixing. _Requirements: 8, 13; DECISIONS D-007, D-008, D-015._
 
-- [ ] 4. Exact money/quantity/percentage representations
+- [x] 4. Exact money/quantity/percentage representations
   - **Objective:** Lossless numeric conversions.
   - **Dependencies:** Task 3.
   - **Scope:** `Money` (Decimal) + `to_paise`/`from_paise`; quantity (scale 3) and percent (scale 2) scaled-integer helpers.
