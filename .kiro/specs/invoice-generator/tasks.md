@@ -279,7 +279,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** history intact; UUID unchanged. _Requirements: 14, 30; DECISIONS D-016, D-025._
 
-- [ ] 26. Duplication
+- [x] 26. Duplication
   - **Objective:** Duplicate → new draft only.
   - **Dependencies:** Task 21.
   - **Scope:** copy editable content; exclude id/final state/number/payment status.

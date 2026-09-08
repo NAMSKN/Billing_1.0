@@ -354,6 +354,50 @@ class InvoiceService:
             self._invoices.save(cancelled)
         return cancelled
 
+    def duplicate(self, invoice_id: uuid.UUID) -> Invoice:
+        """Duplicate an invoice into a NEW draft (design section 14).
+
+        Copies only editable business content (customer selection, place of
+        supply, references, line items, notes/terms/declaration, payment terms).
+        Excludes the original id, finalized state, invoice number, payment
+        status, totals, snapshot, and cancellation data. The duplicate receives
+        a new UUID and no number; a number is assigned only when it is finalized
+        (DECISIONS D-017, D-025). The original is left unchanged.
+        """
+        source = self._invoices.get(invoice_id)
+        if source is None:
+            raise InvoiceServiceError("invoice not found")
+
+        copied_lines = tuple(
+            line.model_copy(
+                update={
+                    "id": self._ids(),
+                    "taxable_amount": None,
+                    "cgst_amount": None,
+                    "sgst_amount": None,
+                    "igst_amount": None,
+                }
+            )
+            for line in source.lines
+        )
+        duplicate = Invoice(
+            id=self._ids(),
+            status=InvoiceStatus.DRAFT,
+            invoice_number=None,
+            customer_id=source.customer_id,
+            place_of_supply=source.place_of_supply,
+            references=source.references,
+            lines=copied_lines,
+            payment_terms=source.payment_terms,
+            due_date=source.due_date,
+            notes=source.notes,
+            terms=source.terms,
+            declaration=source.declaration,
+        )
+        with UnitOfWork(self._conn):
+            self._invoices.save(duplicate)
+        return duplicate
+
     def delete_draft(self, invoice_id: uuid.UUID) -> None:
         """Delete a draft and (via cascade) its line items.
 
