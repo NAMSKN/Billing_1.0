@@ -23,8 +23,12 @@ computed from the explicit component rates in ``TaxRateConfig`` (DECISIONS
 D-030). CGST/SGST are never derived by halving the total rate, and a single
 line never carries both the CGST/SGST pair and IGST.
 
-Tax grouping (Task 10) and totals/round-off (Task 11) extend this module in
-later tasks.
+Task 10 adds the tax summary: lines are folded into groups keyed by the
+composite {HSN/SAC + tax treatment + tax type + applicable rate}, never by
+HSN/SAC alone (design section 6, finding 3.4). The summary reconciles exactly
+to the summed line taxable and tax amounts.
+
+Totals/round-off (Task 11) extend this module in a later task.
 
 Functions are pure: no I/O, no clock, no global state.
 
@@ -34,11 +38,12 @@ design sections 4, 5.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
 from invoice_generator.domain.enums import TaxTreatment, TaxType
-from invoice_generator.domain.models import TaxRateConfig
+from invoice_generator.domain.models import TaxRateConfig, TaxSummaryRow
 from invoice_generator.domain.money import quantize_money
 
 _HUNDRED = Decimal(100)
@@ -150,3 +155,102 @@ def calculate_line_tax(
         return LineTax(cgst=cgst, sgst=sgst, igst=zero)
     igst = quantize_money(taxable * config.igst_rate / _HUNDRED)
     return LineTax(cgst=zero, sgst=zero, igst=igst)
+
+
+@dataclass(frozen=True)
+class TaxLineInput:
+    """One line's already-calculated contribution to the tax summary.
+
+    Carries the composite grouping key ({HSN/SAC, treatment, tax type, rate})
+    and the line's calculated taxable and tax component amounts.
+    """
+
+    hsn_sac: str
+    tax_treatment: TaxTreatment
+    tax_type: TaxType
+    tax_rate: Decimal
+    taxable: Decimal
+    cgst: Decimal
+    sgst: Decimal
+    igst: Decimal
+
+
+def build_tax_summary(lines: Sequence[TaxLineInput]) -> tuple[TaxSummaryRow, ...]:
+    """Group line contributions into a reconciling tax summary.
+
+    Lines are grouped by the composite key {HSN/SAC + tax treatment + tax type
+    + applicable rate} (design section 6, finding 3.4). Within each group the
+    taxable value and CGST/SGST/IGST amounts are summed and ``total_tax`` is
+    their sum. Groups are returned in first-appearance order for determinism.
+
+    The result reconciles exactly to the summed inputs: the sum of group
+    taxable values equals the sum of line taxables, and likewise for each tax
+    component (verified by :func:`tax_summary_reconciles`).
+    """
+    order: list[tuple[str, TaxTreatment, TaxType, Decimal]] = []
+    groups: dict[tuple[str, TaxTreatment, TaxType, Decimal], dict[str, Decimal]] = {}
+
+    for line in lines:
+        key = (line.hsn_sac, line.tax_treatment, line.tax_type, line.tax_rate)
+        if key not in groups:
+            order.append(key)
+            groups[key] = {
+                "taxable": Decimal(0),
+                "cgst": Decimal(0),
+                "sgst": Decimal(0),
+                "igst": Decimal(0),
+            }
+        acc = groups[key]
+        acc["taxable"] += line.taxable
+        acc["cgst"] += line.cgst
+        acc["sgst"] += line.sgst
+        acc["igst"] += line.igst
+
+    rows: list[TaxSummaryRow] = []
+    for hsn_sac, treatment, tax_type, rate in order:
+        acc = groups[(hsn_sac, treatment, tax_type, rate)]
+        taxable = quantize_money(acc["taxable"])
+        cgst = quantize_money(acc["cgst"])
+        sgst = quantize_money(acc["sgst"])
+        igst = quantize_money(acc["igst"])
+        rows.append(
+            TaxSummaryRow(
+                hsn_sac=hsn_sac,
+                tax_treatment=treatment,
+                tax_type=tax_type,
+                tax_rate=rate,
+                taxable_value=taxable,
+                cgst_amount=cgst,
+                sgst_amount=sgst,
+                igst_amount=igst,
+                total_tax=quantize_money(cgst + sgst + igst),
+            )
+        )
+    return tuple(rows)
+
+
+def tax_summary_reconciles(
+    summary: Sequence[TaxSummaryRow],
+    lines: Sequence[TaxLineInput],
+) -> bool:
+    """Return True if ``summary`` reconciles exactly to the line inputs.
+
+    Checks that summed taxable and each summed tax component across the summary
+    equal the summed line values (to the paise).
+    """
+    sum_taxable = quantize_money(sum((line.taxable for line in lines), Decimal(0)))
+    sum_cgst = quantize_money(sum((line.cgst for line in lines), Decimal(0)))
+    sum_sgst = quantize_money(sum((line.sgst for line in lines), Decimal(0)))
+    sum_igst = quantize_money(sum((line.igst for line in lines), Decimal(0)))
+
+    grp_taxable = quantize_money(sum((r.taxable_value for r in summary), Decimal(0)))
+    grp_cgst = quantize_money(sum((r.cgst_amount for r in summary), Decimal(0)))
+    grp_sgst = quantize_money(sum((r.sgst_amount for r in summary), Decimal(0)))
+    grp_igst = quantize_money(sum((r.igst_amount for r in summary), Decimal(0)))
+
+    return (
+        sum_taxable == grp_taxable
+        and sum_cgst == grp_cgst
+        and sum_sgst == grp_sgst
+        and sum_igst == grp_igst
+    )

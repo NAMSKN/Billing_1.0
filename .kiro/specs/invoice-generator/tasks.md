@@ -131,7 +131,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** consumes configured component rates. _Requirements: 6.4, 7.2, 6.3; DECISIONS D-030._
 
-- [ ] 10. Tax grouping (composite key)
+- [x] 10. Tax grouping (composite key)
   - **Objective:** Build reconciling tax summary.
   - **Dependencies:** Task 9.
   - **Scope:** group by {HSN/SAC + treatment + rate(s)}; reconcile to totals.
