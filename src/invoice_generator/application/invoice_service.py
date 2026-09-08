@@ -25,9 +25,28 @@ import sqlite3
 import uuid
 from datetime import date
 
-from invoice_generator.domain.enums import InvoiceStatus
+from invoice_generator.application.numbering_service import NumberingService
+from invoice_generator.application.settings_service import SettingsService
+from invoice_generator.application.unit_of_work import UnitOfWork
+from invoice_generator.domain.amount_words import amount_in_words
+from invoice_generator.domain.calculation import (
+    TaxLineInput,
+    build_tax_summary,
+    calculate_invoice_totals,
+    calculate_line,
+    calculate_line_tax,
+    determine_tax_type,
+    ensure_supported_treatment,
+)
+from invoice_generator.domain.enums import InvoiceStatus, TaxType
 from invoice_generator.domain.ids import IdGenerator, Uuid4Generator
-from invoice_generator.domain.models import Invoice
+from invoice_generator.domain.models import (
+    Invoice,
+    InvoiceLine,
+    InvoiceSnapshot,
+    TaxRateConfig,
+)
+from invoice_generator.domain.numbering import NumberingConfig
 from invoice_generator.domain.repositories import (
     CompanyRepository,
     CustomerRepository,
@@ -40,23 +59,39 @@ from invoice_generator.domain.validation import (
 )
 
 
+class FinalizationError(Exception):
+    """Raised when finalization cannot proceed (validation or state errors)."""
+
+    def __init__(self, message: str, result: ValidationResult | None = None) -> None:
+        super().__init__(message)
+        self.result = result
+
+
 class InvoiceServiceError(Exception):
     """Raised for invalid invoice-service operations (e.g. wrong lifecycle state)."""
 
 
 class InvoiceService:
+    #: Template/layout version pinned on invoices finalized by this build
+    #: (DECISIONS D-020). Bumped when the PDF layout changes materially.
+    DEFAULT_TEMPLATE_VERSION = 1
+
     def __init__(
         self,
         connection: sqlite3.Connection,
         invoice_repository: InvoiceRepository,
         company_repository: CompanyRepository | None = None,
         customer_repository: CustomerRepository | None = None,
+        numbering_service: NumberingService | None = None,
+        settings_service: SettingsService | None = None,
         id_generator: IdGenerator | None = None,
     ) -> None:
         self._conn = connection
         self._invoices = invoice_repository
         self._companies = company_repository
         self._customers = customer_repository
+        self._numbering = numbering_service
+        self._settings = settings_service
         self._ids: IdGenerator = id_generator if id_generator is not None else Uuid4Generator()
 
     def get(self, invoice_id: uuid.UUID) -> Invoice | None:
@@ -77,7 +112,7 @@ class InvoiceService:
                 "invoice_number": None,
             }
         )
-        with self._conn:  # own the transaction; repo participates
+        with UnitOfWork(self._conn):  # own the transaction; repo participates
             self._invoices.save(draft)
         return draft
 
@@ -94,7 +129,7 @@ class InvoiceService:
             raise InvoiceServiceError("a draft must not carry an invoice number")
 
         result = validate_draft(invoice)
-        with self._conn:
+        with UnitOfWork(self._conn):
             self._invoices.save(invoice)
         return result
 
@@ -143,11 +178,151 @@ class InvoiceService:
             today=today,
         )
 
+    def finalize(
+        self,
+        invoice_id: uuid.UUID,
+        *,
+        invoice_date: date,
+        due_date: date | None = None,
+        today: date | None = None,
+    ) -> Invoice:
+        """Finalize a draft atomically within one owned transaction (design section 22).
+
+        Flow: load draft -> strict validate -> resolve tax type -> calculate
+        lines/tax/totals -> allocate number -> build snapshot -> pin template ->
+        persist -> COMMIT. Any failure rolls back completely (no partial invoice;
+        an allocated-but-rolled-back number is not issued and may be reused,
+        DECISIONS D-027). The number is issued only when the COMMIT succeeds.
+        """
+        if self._companies is None or self._customers is None:
+            raise FinalizationError("company and customer repositories are required")
+        if self._numbering is None or self._settings is None:
+            raise FinalizationError("numbering and settings services are required")
+
+        draft = self._invoices.get(invoice_id)
+        if draft is None:
+            raise FinalizationError("invoice not found")
+        if draft.status is not InvoiceStatus.DRAFT:
+            raise FinalizationError("only a DRAFT invoice can be finalized")
+
+        company = self._companies.get_active()
+        if company is None:
+            raise FinalizationError("no active company is configured")
+        if draft.customer_id is None:
+            raise FinalizationError("invoice has no customer selected")
+        customer = self._customers.get(draft.customer_id)
+        if customer is None:
+            raise FinalizationError("selected customer does not exist")
+
+        result = validate_for_finalization(
+            draft,
+            company=company,
+            customer=customer,
+            invoice_date=invoice_date,
+            due_date=due_date,
+            today=today,
+        )
+        if not result.is_ok:
+            raise FinalizationError("invoice failed finalization validation", result)
+
+        tax_config = self._settings.get_tax_rate_config()
+        tax_type = determine_tax_type(
+            company.address.state_code, draft.place_of_supply.state_code
+        )
+
+        # Compute lines and their tax within the transaction's inputs.
+        computed_lines, tax_inputs = self._compute_lines(draft.lines, tax_type, tax_config)
+        totals = calculate_invoice_totals(tax_inputs)
+        tax_summary = build_tax_summary(tax_inputs)
+
+        numbering_config = self._numbering_config()
+        # Atomic finalization transaction (BEGIN IMMEDIATE ... COMMIT).
+        with UnitOfWork(self._conn):
+            allocation = self._numbering.allocate(company.id, invoice_date, numbering_config)
+            snapshot = InvoiceSnapshot(
+                company=company,
+                customer=customer,
+                bill_to=customer.bill_to,
+                ship_to=customer.ship_to,
+                place_of_supply=draft.place_of_supply,
+                references=draft.references,
+                lines=computed_lines,
+                totals=totals,
+                tax_summary=tax_summary,
+                tax_rate_config=tax_config,
+                payment_terms=draft.payment_terms,
+                due_date=draft.due_date,
+                notes=draft.notes,
+                terms=draft.terms,
+                declaration=draft.declaration,
+                grand_total_words=amount_in_words(totals.grand_total),
+                tax_amount_words=amount_in_words(
+                    totals.total_cgst + totals.total_sgst + totals.total_igst
+                ),
+                logo_asset_id=company.logo_asset_id,
+                signature_asset_id=company.signature_asset_id,
+            )
+            finalized = draft.model_copy(
+                update={
+                    "status": InvoiceStatus.FINALIZED,
+                    "invoice_number": allocation.invoice_number,
+                    "invoice_date": invoice_date.isoformat(),
+                    "company_id": company.id,
+                    "lines": computed_lines,
+                    "totals": totals,
+                    "template_version": self.DEFAULT_TEMPLATE_VERSION,
+                    "snapshot": snapshot,
+                }
+            )
+            self._invoices.save(finalized)
+        return finalized
+
+    def _numbering_config(self) -> NumberingConfig:
+        assert self._settings is not None
+        return self._settings.get_numbering_config()
+
+    def _compute_lines(
+        self,
+        lines: tuple[InvoiceLine, ...],
+        tax_type: TaxType,
+        tax_config: TaxRateConfig,
+    ) -> tuple[tuple[InvoiceLine, ...], list[TaxLineInput]]:
+        computed: list[InvoiceLine] = []
+        inputs: list[TaxLineInput] = []
+        for line in lines:
+            ensure_supported_treatment(line.tax_treatment)
+            amounts = calculate_line(line.quantity, line.rate, line.discount_percent)
+            tax = calculate_line_tax(amounts.taxable, tax_type, tax_config)
+            computed.append(
+                line.model_copy(
+                    update={
+                        "tax_rate": tax_config.total_rate,
+                        "taxable_amount": amounts.taxable,
+                        "cgst_amount": tax.cgst,
+                        "sgst_amount": tax.sgst,
+                        "igst_amount": tax.igst,
+                    }
+                )
+            )
+            inputs.append(
+                TaxLineInput(
+                    hsn_sac=line.hsn_sac,
+                    tax_treatment=line.tax_treatment,
+                    tax_type=tax_type,
+                    tax_rate=tax_config.total_rate,
+                    taxable=amounts.taxable,
+                    cgst=tax.cgst,
+                    sgst=tax.sgst,
+                    igst=tax.igst,
+                )
+            )
+        return tuple(computed), inputs
+
     def delete_draft(self, invoice_id: uuid.UUID) -> None:
         """Delete a draft and (via cascade) its line items.
 
         The repository only removes DRAFT rows; finalized/cancelled invoices are
         never hard-deleted through this path (Req 23.5).
         """
-        with self._conn:
+        with UnitOfWork(self._conn):
             self._invoices.delete_draft(invoice_id)

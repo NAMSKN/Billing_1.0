@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from invoice_generator.application.numbering_service import NumberingService
+from invoice_generator.application.unit_of_work import UnitOfWork
 from invoice_generator.domain.models import Company
 from invoice_generator.domain.numbering import NumberingConfig
 from invoice_generator.infrastructure.db.company_repository import SqliteCompanyRepository
@@ -97,13 +98,18 @@ def test_high_water_mark_advances(conn: sqlite3.Connection) -> None:
 
 def test_rollback_does_not_issue_number(conn: sqlite3.Connection) -> None:
     service = _service(conn)
-    # Allocate then roll back: the number is NOT issued (D-027).
-    first = service.allocate(COMPANY, date(2026, 5, 11), CONFIG)
-    assert first.sequence == 1
-    conn.rollback()
-    # A later successful allocation may reuse the rolled-back sequence.
-    second = service.allocate(COMPANY, date(2026, 5, 11), CONFIG)
-    conn.commit()
+    # Allocate inside a transaction that rolls back: the number is NOT issued
+    # (D-027). The allocator participates in the caller's transaction (D-026).
+    try:
+        with UnitOfWork(conn):
+            first = service.allocate(COMPANY, date(2026, 5, 11), CONFIG)
+            assert first.sequence == 1
+            raise RuntimeError("simulated failure -> rollback")
+    except RuntimeError:
+        pass
+    # A later successful allocation reuses the rolled-back sequence.
+    with UnitOfWork(conn):
+        second = service.allocate(COMPANY, date(2026, 5, 11), CONFIG)
     assert second.sequence == 1
     assert second.invoice_number == "SE/26-27/001"
 
@@ -119,11 +125,15 @@ def test_committed_number_is_not_reused(conn: sqlite3.Connection) -> None:
 
 
 def test_allocator_does_not_commit(conn: sqlite3.Connection) -> None:
-    # If the allocator committed internally, the rollback below could not undo
-    # the sequence advance. Prove it does not commit.
+    # If the allocator committed internally, rolling back the caller's
+    # transaction could not undo the sequence advance. Prove it does not commit.
     service = _service(conn)
-    service.allocate(COMPANY, date(2026, 5, 11), CONFIG)
-    conn.rollback()
+    try:
+        with UnitOfWork(conn):
+            service.allocate(COMPANY, date(2026, 5, 11), CONFIG)
+            raise RuntimeError("rollback")
+    except RuntimeError:
+        pass
     repo = SqliteSequenceRepository(conn)
     assert repo.get(COMPANY, "26-27", "SE") is None  # nothing persisted
 

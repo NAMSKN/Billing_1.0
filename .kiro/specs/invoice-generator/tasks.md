@@ -252,7 +252,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** distinct from draft validation. _Requirements: 9.1; finding 3.1._
 
-- [ ] 23. Atomic finalization
+- [x] 23. Atomic finalization
   - **Objective:** One outer transaction owned by the use case (D-026); number issued only on commit (D-027).
   - **Dependencies:** Task 11, 20, 22.
   - **Scope:** `InvoiceService.finalize` opens `BEGIN IMMEDIATE`, runs validate→resolve PoS→determine tax→calculate→allocate number→snapshot→pin asset/template→persist invoice/items/snapshot/sequence→COMMIT; ROLLBACK on any failure. No repository/service commits inside.

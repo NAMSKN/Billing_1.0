@@ -19,7 +19,10 @@ def connect(database: str | Path) -> sqlite3.Connection:
     Args:
         database: Filesystem path to the database file, or ``":memory:"``.
     """
-    conn = sqlite3.connect(database)
+    # Autocommit mode: transaction control is explicit via UnitOfWork
+    # (BEGIN IMMEDIATE ... COMMIT/ROLLBACK), so use cases own transaction
+    # boundaries (DECISIONS D-026) rather than sqlite3's implicit transactions.
+    conn = sqlite3.connect(database, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
