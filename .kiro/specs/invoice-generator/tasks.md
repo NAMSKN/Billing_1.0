@@ -288,7 +288,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** new UUID identity; number assigned only on finalize. _Requirements: 16, 30; DECISIONS D-017, D-025._
 
-- [ ] 27. Payment status
+- [x] 27. Payment status
   - **Objective:** Independent payment status.
   - **Dependencies:** Task 23.
   - **Scope:** set UNPAID/PARTIAL/PAID; no financial/number change.

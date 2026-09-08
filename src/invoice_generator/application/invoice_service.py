@@ -39,7 +39,7 @@ from invoice_generator.domain.calculation import (
     determine_tax_type,
     ensure_supported_treatment,
 )
-from invoice_generator.domain.enums import InvoiceStatus, TaxType
+from invoice_generator.domain.enums import InvoiceStatus, PaymentStatus, TaxType
 from invoice_generator.domain.ids import IdGenerator, Uuid4Generator
 from invoice_generator.domain.models import (
     Invoice,
@@ -397,6 +397,27 @@ class InvoiceService:
         with UnitOfWork(self._conn):
             self._invoices.save(duplicate)
         return duplicate
+
+    def set_payment_status(
+        self,
+        invoice_id: uuid.UUID,
+        status: PaymentStatus,
+    ) -> Invoice:
+        """Set the payment status, independent of the invoice lifecycle.
+
+        Payment status (UNPAID/PARTIAL/PAID) is separate from
+        DRAFT/FINALIZED/CANCELLED (DECISIONS D-015): e.g. FINALIZED + UNPAID is
+        valid. Changing it updates only ``payment_status`` and never alters any
+        financial value, the totals, the snapshot, or the invoice number. V1
+        keeps no receipt ledger and tracks no paid amount (OPEN_QUESTIONS Q-011).
+        """
+        invoice = self._invoices.get(invoice_id)
+        if invoice is None:
+            raise InvoiceServiceError("invoice not found")
+        updated = invoice.model_copy(update={"payment_status": status})
+        with UnitOfWork(self._conn):
+            self._invoices.save(updated)
+        return updated
 
     def delete_draft(self, invoice_id: uuid.UUID) -> None:
         """Delete a draft and (via cascade) its line items.
