@@ -140,7 +140,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** reconciliation test passes.
   - **DoD:** never grouped by HSN alone. _Requirements: 7.3; finding 3.4._
 
-- [ ] 11. Totals and round-off
+- [x] 11. Totals and round-off
   - **Objective:** Aggregate totals + explicit round-off.
   - **Dependencies:** Task 9.
   - **Scope:** raw_total, rounded_total, round_off, grand_total.

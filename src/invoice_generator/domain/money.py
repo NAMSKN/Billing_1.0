@@ -71,6 +71,17 @@ def quantize_money(value: Decimal | int | str) -> Decimal:
     return _to_decimal(value).quantize(_MONEY_QUANTUM, rounding=ROUND_HALF_UP)
 
 
+def round_to_rupee(value: Decimal | int | str) -> Decimal:
+    """Round ``value`` to the nearest whole rupee (0 dp) using ROUND_HALF_UP.
+
+    Returned as a 2-dp ``Decimal`` (e.g. ``Decimal("14490.00")``) so it lines
+    up with other monetary values. Used for invoice round-off (design section
+    5): ``round_off = round_to_rupee(raw_total) - raw_total``.
+    """
+    whole = _to_decimal(value).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return whole.quantize(_MONEY_QUANTUM)
+
+
 def quantize_quantity(value: Decimal | int | str) -> Decimal:
     """Return ``value`` quantized to 3 dp using ROUND_HALF_UP."""
     return _to_decimal(value).quantize(_QUANTITY_QUANTUM, rounding=ROUND_HALF_UP)

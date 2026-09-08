@@ -28,7 +28,10 @@ composite {HSN/SAC + tax treatment + tax type + applicable rate}, never by
 HSN/SAC alone (design section 6, finding 3.4). The summary reconciles exactly
 to the summed line taxable and tax amounts.
 
-Totals/round-off (Task 11) extend this module in a later task.
+Task 11 adds invoice totals and explicit round-off (design section 5):
+``raw_total`` is the sum of taxable and tax components; ``round_off`` is
+``round_to_rupee(raw_total) - raw_total`` (may be positive or negative); and
+``grand_total = raw_total + round_off``.
 
 Functions are pure: no I/O, no clock, no global state.
 
@@ -43,8 +46,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from invoice_generator.domain.enums import TaxTreatment, TaxType
-from invoice_generator.domain.models import TaxRateConfig, TaxSummaryRow
-from invoice_generator.domain.money import quantize_money
+from invoice_generator.domain.models import InvoiceTotals, TaxRateConfig, TaxSummaryRow
+from invoice_generator.domain.money import quantize_money, round_to_rupee
 
 _HUNDRED = Decimal(100)
 
@@ -253,4 +256,38 @@ def tax_summary_reconciles(
         and sum_cgst == grp_cgst
         and sum_sgst == grp_sgst
         and sum_igst == grp_igst
+    )
+
+
+def calculate_invoice_totals(lines: Sequence[TaxLineInput]) -> InvoiceTotals:
+    """Aggregate line taxable/tax amounts into invoice totals with round-off.
+
+    Sums the per-line taxable and CGST/SGST/IGST amounts, computes the raw
+    total, then the explicit round-off to the nearest rupee (design section 5):
+
+        raw_total     = total_taxable + total_cgst + total_sgst + total_igst
+        rounded_total = round_to_rupee(raw_total)     # ROUND_HALF_UP
+        round_off     = rounded_total - raw_total      # may be + or -
+        grand_total   = raw_total + round_off          # == rounded_total
+
+    All values are quantized to 2 dp.
+    """
+    total_taxable = quantize_money(sum((line.taxable for line in lines), Decimal(0)))
+    total_cgst = quantize_money(sum((line.cgst for line in lines), Decimal(0)))
+    total_sgst = quantize_money(sum((line.sgst for line in lines), Decimal(0)))
+    total_igst = quantize_money(sum((line.igst for line in lines), Decimal(0)))
+
+    raw_total = quantize_money(total_taxable + total_cgst + total_sgst + total_igst)
+    rounded_total = round_to_rupee(raw_total)
+    round_off = quantize_money(rounded_total - raw_total)
+    grand_total = quantize_money(raw_total + round_off)
+
+    return InvoiceTotals(
+        total_taxable=total_taxable,
+        total_cgst=total_cgst,
+        total_sgst=total_sgst,
+        total_igst=total_igst,
+        raw_total=raw_total,
+        round_off=round_off,
+        grand_total=grand_total,
     )
