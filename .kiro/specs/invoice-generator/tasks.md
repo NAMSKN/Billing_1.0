@@ -205,7 +205,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** integration tests pass.
   - **DoD:** no precision loss; UUIDs preserved unchanged. _Requirements: 5.4, 21.3, 23.2, 30; DECISIONS D-024._
 
-- [ ] 18. Constraints and integrity tests
+- [x] 18. Constraints and integrity tests
   - **Objective:** Prove integrity rules.
   - **Dependencies:** Task 17.
   - **Scope:** unique finalized number, FK integrity, status CHECKs, draft cascade delete.

@@ -85,8 +85,14 @@ class SqliteInvoiceRepository:
         header = self._invoice_to_header_row(invoice)
         columns = ", ".join(header)
         placeholders = ", ".join(f":{key}" for key in header)
+        # Upsert on the primary key only. Using ON CONFLICT(id) (not
+        # INSERT OR REPLACE) ensures a conflict on the unique invoice_number of
+        # a *different* row raises IntegrityError instead of silently replacing
+        # that other invoice (the numbering backstop, D-028).
+        updates = ", ".join(f"{key} = :{key}" for key in header if key != "id")
         self._conn.execute(
-            f"INSERT OR REPLACE INTO invoices ({columns}) VALUES ({placeholders})",
+            f"INSERT INTO invoices ({columns}) VALUES ({placeholders}) "
+            f"ON CONFLICT(id) DO UPDATE SET {updates}",
             header,
         )
         # Replace line items wholesale to keep them in sync with the header.
