@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invoice-generator"
+version = "0.1.0"
+description = "Local offline desktop billing application for a mould / mould-machining business"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+
+# Runtime dependencies. Kept minimal per architecture rules: only libraries
+# with a confirmed requirement in the design are listed here.
+dependencies = [
+    "PySide6>=6.6",     # desktop UI
+    "pydantic>=2.6",    # model/input validation
+    "reportlab>=4.1",   # deterministic A4 PDF generation
+    "qrcode>=7.4",      # optional UPI QR image
+    "pillow>=10.2",     # logo / signature image handling
+    "num2words>=0.5.13",  # INR amount-to-words
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.9",
+]
+
+[project.scripts]
+invoice-generator = "invoice_generator.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+markers = [
+    "unit: fast, isolated unit tests",
+    "integration: tests that exercise SQLite/filesystem",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["invoice_generator"]
+mypy_path = "src"
+strict = true
+warn_unused_ignores = true

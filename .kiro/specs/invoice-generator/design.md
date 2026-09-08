@@ -2,342 +2,260 @@
 
 ## Overview
 
-The Invoice Generator is a local, offline desktop application for a mould / mould-machining business. It is built in Python using a layered architecture: **PySide6** for the UI, **application services** for use-case coordination, a **domain layer** for business rules and calculations, **SQLite** for persistence, and **ReportLab** for deterministic A4 PDF generation.
+Implementation architecture for the Invoice Generator: a local, Windows-first desktop billing application (Python + PySide6 + SQLite + ReportLab). This document turns `requirements.md` into a buildable design and defers to `DECISIONS.md` for intentional choices and `OPEN_QUESTIONS.md` for unresolved items.
 
-The central design invariant is: **a finalized invoice is a stable financial record.** Its number, date, parties, line items, taxes, totals, terms, and declaration must be reproducible from locally stored data, independent of later master-data edits.
+Central invariant: **a finalized invoice is an immutable historical record** reproducible from a stored snapshot, independent of later master edits. There is **one** calculation engine, and the PDF renderer never touches the database and never recalculates.
 
-Two real invoices (`SE/26-27/043` and `SE/26-27/089`) act as golden regression fixtures whose calculated values must be reproduced exactly.
+Design principles: explicit domain models, small services, constructor injection via one composition root, repository ports over SQLite, `Decimal` in the domain with exact integer-paise storage, transactional finalization, and testable pure calculations. Avoid generic frameworks, service locators, god classes, global mutable state, and premature async.
 
-### Design Goals
+The section order below matches the requested structure.
 
-- Correct, deterministic financial calculations using `Decimal` only.
-- One authoritative calculation model consumed by UI, PDF, and persistence.
-- Reliable local persistence with transactional invoice finalization.
-- Clean separation of concerns: no SQL or GST math in the UI.
-- Offline operation with no runtime network dependency.
-- Testability at every layer.
+## 1. Layered Architecture
 
-### Non-Goals
-
-No cloud, REST API, remote database, message queue, online payments, or live GSTIN verification. This is a billing tool, not an ERP.
-
-## Architecture
-
-### Layered Architecture
-
-```text
-Presentation (PySide6 UI)
-        ↓  (controllers/view-models call services)
-Application Services
-        ↓  (services orchestrate domain + repositories)
-Domain / Business Rules  ←—— pure, no I/O
-        ↓
-Repositories / Infrastructure (SQLite, PDF, Printing, Backup, FS)
-        ↓
-SQLite + File System + OS Printer
+```
+Presentation (PySide6)
+    → Application services (use-case orchestration)
+        → Domain (models, rules, pure calculations, repository ports)
+            ← Infrastructure (SQLite repos, ReportLab renderer, printing, backup, filesystem)
 ```
 
-Hard rules enforced by the design:
+Dependencies point inward; the domain depends on nothing outside itself. Hard boundaries (steering `architecture.md`): UI has no SQL and no calculations; one calculation engine owns money; the renderer consumes a DTO only.
 
-- UI code MUST NOT contain financial rules or direct SQL (Req 20.6).
-- Services depend on repository **interfaces** (ports), not concrete SQLite classes (Req 17, testability).
-- The PDF renderer receives already-calculated data and performs no accounting (Req 7.6, 13.5).
-- Exactly one `CalculationService` owns tax, discount, rounding, totals (Req 7.6).
+### Package layout (under the existing `src/invoice_generator/` package from Task 1)
 
-### Project Structure
-
-```text
-invoice-generator/
-├── src/
-│   ├── main.py                # entry point
-│   ├── bootstrap.py           # composition root (wires deps)
-│   ├── domain/
-│   │   ├── models/            # Company, Customer, Invoice, InvoiceLine, ...
-│   │   ├── enums/             # InvoiceStatus, PaymentStatus, TaxType
-│   │   ├── rules/             # calculation, numbering, validation rules
-│   │   └── repositories/      # repository interfaces (ports)
-│   ├── application/
-│   │   ├── services/          # InvoiceService, CalculationService, ...
-│   │   ├── dto/               # invoice view-model / render DTO
-│   │   └── errors/            # domain/application error types
-│   ├── infrastructure/
-│   │   ├── database/          # sqlite_connection, migrations, repos
-│   │   ├── pdf/               # invoice_renderer, components, tables
-│   │   ├── printing/          # OS print adapters
-│   │   ├── backup/            # backup/restore service
-│   │   └── filesystem/        # platform-aware paths, asset loading
-│   └── ui/
-│       ├── dashboard/  customers/  invoices/  settings/  common/
-├── tests/
-│   ├── unit/  integration/  fixtures/
-├── assets/
-├── docs/
-├── pyproject.toml
-└── README.md
+```
+invoice_generator/
+├── config/           # paths.py, logging_setup.py (exist)
+├── domain/
+│   ├── enums.py            # InvoiceStatus, PaymentStatus, TaxType, TaxTreatment
+│   ├── money.py            # Money (Decimal) + paise conversions; Quantity/Percent scales
+│   ├── models.py           # Company, Customer, InvoiceLine, Invoice, Totals, TaxSummaryRow, snapshot
+│   ├── calculation.py      # pure calculation functions (engine core)
+│   ├── numbering.py        # numbering value objects/formatter
+│   └── repositories.py     # repository Protocols (ports)
+├── application/
+│   ├── calculation_service.py
+│   ├── invoice_service.py  # draft/finalize/cancel/duplicate/list
+│   ├── numbering_service.py
+│   ├── company_service.py  customer_service.py  settings_service.py
+│   ├── pdf_service.py      # builds render DTO, calls renderer
+│   ├── print_service.py    backup_service.py
+│   ├── render_dto.py       # immutable render view model
+│   └── errors.py
+├── infrastructure/
+│   ├── db/                 # connection.py, migrations/, *_repository.py
+│   ├── pdf/                # renderer.py, components/, styles.py
+│   ├── printing/           # windows_print_adapter.py (+ port)
+│   ├── backup/             # backup.py, manifest.py
+│   └── assets/             # versioned asset store
+├── ui/                     # dashboard/ customers/ invoices/ settings/ common/
+├── bootstrap.py            # composition root
+└── main.py                 # entry point (exists)
 ```
 
-### Composition Root
+## 2. Domain Model
 
-`bootstrap.py` is the single place that wires dependencies:
+Master data: `Company`, `Customer`, invoice/numbering/terms configuration, versioned assets.
+Transaction data: `Invoice` (+ snapshot), `InvoiceLine`, tax results, cancellation metadata, payment status.
 
-```text
-SQLiteConnection → Repositories → Services → Controllers/ViewModels → PySide6 UI
+Enums (Req/DECISIONS):
+- `InvoiceStatus = DRAFT | FINALIZED | CANCELLED`
+- `PaymentStatus = UNPAID | PARTIAL | PAID`
+- `TaxType = INTRA_STATE | INTER_STATE`
+- `TaxTreatment = TAXABLE` (only value in V1; extension point for D-008)
+
+Lifecycle status and payment status are distinct fields and never merged.
+
+Finalized domain values are immutable (frozen models). Bill-to and ship-to are always distinct concepts even when equal.
+
+## 3. Exact Numeric Model
+
+Per DECISIONS D-004/D-005:
+
+| Value | Domain type | Storage | Scale |
+|---|---|---|---|
+| Money (amounts, rate) | `Decimal` | INTEGER paise | 2 dp → ×100 |
+| Quantity | `Decimal` | INTEGER millis | 3 dp → ×1000 |
+| Discount % | `Decimal` | INTEGER (hundredths) | 2 dp → ×100 |
+| Tax % | `Decimal` | INTEGER (hundredths) | 2 dp → ×100 |
+
+`domain/money.py` provides `to_paise(Decimal) -> int`, `from_paise(int) -> Decimal`, and analogous helpers for quantity/percent. Conversion happens **only** at the repository boundary; the domain and calculation engine work in `Decimal`. Round-half-up is applied only at the engine's defined quantization points. A property test asserts round-trip losslessness (UI→domain→DB→domain).
+
+## 4. GST / Tax Determination
+
+Place of Supply (state + code) is explicit on the invoice (Req 11) and defaults from the customer. Tax type:
+
+```
+tax_type = INTRA_STATE if company.state_code == place_of_supply.state_code else INTER_STATE
 ```
 
-No other module instantiates infrastructure directly. Services receive dependencies via constructor injection (e.g. `InvoiceService(invoice_repo, customer_repo, calculation_service)`), which keeps unit testing straightforward.
+- INTRA_STATE → CGST = SGST = taxable × (rate/2); IGST = 0.
+- INTER_STATE → IGST = taxable × rate; CGST = SGST = 0.
 
-## Technology Stack
+A single normal supply line never carries both. Only `TaxTreatment.TAXABLE` is supported in V1; requesting reverse charge/exempt/nil/zero-rated/export/SEZ is a validation error, never silent 0% (D-008). Tax type is computed in the engine, never inferred in the UI.
 
-| Layer | Technology | Responsibility |
-|---|---|---|
-| Language | Python 3.11+ | Application runtime |
-| Desktop UI | PySide6 | Native desktop UI, model/view tables |
-| Validation | Pydantic | Model/input validation |
-| Database | SQLite (stdlib `sqlite3`) | Local relational persistence |
-| PDF | ReportLab | Deterministic A4 invoice PDF |
-| QR | qrcode | Optional UPI QR image |
-| Images | Pillow | Logo / signature handling |
-| Amount words | num2words | INR amount-to-words (custom INR formatting wrapper) |
-| Testing | pytest | Unit / integration tests |
-| Packaging | PyInstaller | Windows desktop executable |
+## 5. Calculation Engine
 
-No library is added without a confirmed requirement. Money uses `Decimal` exclusively; `float` is never used for monetary values.
+`domain/calculation.py` holds pure functions; `application/calculation_service.py` wraps them for use cases. Single source of truth (D-006). All money is `Decimal`, quantized 2 dp `ROUND_HALF_UP` at defined points.
 
-## Domain Model
-
-### Enums
-
-```text
-InvoiceStatus  = DRAFT | FINALIZED | CANCELLED
-PaymentStatus  = UNPAID | PARTIAL | PAID
-TaxType        = INTRA_STATE | INTER_STATE
+Per line:
+```
+gross     = quantize(quantity * rate)
+discount  = quantize(gross * discount_percent / 100)
+taxable   = quantize(gross - discount)
+cgst      = quantize(taxable * cgst_rate / 100)   # intra
+sgst      = quantize(taxable * sgst_rate / 100)   # intra
+igst      = quantize(taxable * igst_rate / 100)   # inter
 ```
 
-Payment status is independent of invoice status (Req 11.1).
-
-### Core Models
-
-`Company` — name, address, gstin, state_name, state_code, email, phone, bank_name, account_number, branch, ifsc, authorized_signatory, logo_path, signature_path.
-
-`Customer` — id, name, gstin, state_name, state_code, phone, email, billing_address, shipping_address, ship_to_state, godown_address, is_active. Bill-to and ship-to are always preserved as distinct concepts even when identical (Req 2.5).
-
-`InvoiceLine` — sequence, job_or_mould_reference, component_or_part, operation, description (required), specification, hsn_sac, quantity (Decimal), unit, rate (Decimal), discount_percent (Decimal), tax_rate (Decimal), plus calculated amounts (gross, discount_amount, taxable_amount, cgst, sgst, igst, line_total).
-
-`Invoice` — identity (id, invoice_number, invoice_date), parties (company snapshot + customer snapshot), references (PO, challan, delivery note, dispatch, vehicle, destination, terms of delivery, ...), commercial (payment_terms, due_date, place_of_supply), line_items[], totals, notes, terms, declaration, status, payment_status.
-
-`InvoiceTotals` — total_taxable, total_cgst, total_sgst, total_igst, raw_total, round_off, grand_total, tax_type, plus grand_total_words and tax_amount_words.
-
-`TaxSummaryRow` — hsn_sac, taxable_value, cgst_rate, cgst_amount, sgst_rate, sgst_amount, igst_rate, igst_amount, total_tax. Grouped by HSN/SAC (Req 6.3, 8.5).
-
-### Snapshot Principle
-
-On finalization, the invoice stores an invoice-facing snapshot of company and customer values, addresses, GSTIN/state, all line values, tax rates, calculated taxes, totals, notes, terms, and declaration (Req 16.1). This is stored as snapshot columns alongside the foreign keys, so later master edits never change historical invoices (Req 16.2). SQLite is the source of truth; the PDF is a generated representation (Req 16.3).
-
-## Calculation Engine (CalculationService)
-
-The single authoritative calculation model (Req 7.6). All monetary math uses `Decimal` with explicit quantization to 2 decimal places using `ROUND_HALF_UP`.
-
-### Per-line calculation
-
-```text
-gross_amount    = quantity * rate
-discount_amount = gross_amount * (discount_percent / 100)
-taxable_amount  = gross_amount - discount_amount
+Invoice aggregation and round-off:
 ```
-
-Each intermediate monetary result is quantized to 2 dp before the next monetary step, so downstream sums are exact.
-
-### Tax determination
-
-```text
-if company.state_code == place_of_supply_state_code:  tax_type = INTRA_STATE
-else:                                                  tax_type = INTER_STATE
-```
-
-- INTRA_STATE → CGST + SGST (each = tax_rate / 2), IGST = 0.
-- INTER_STATE → IGST (= tax_rate), CGST = SGST = 0.
-
-A single normal supply line never carries CGST/SGST and IGST simultaneously (Req 8.3). Tax rates are configurable, never hardcoded to 9/9 or 18 (Req 8.4).
-
-### Per-line tax
-
-```text
-cgst_amount = taxable_amount * cgst_rate / 100    (intra-state)
-sgst_amount = taxable_amount * sgst_rate / 100    (intra-state)
-igst_amount = taxable_amount * igst_rate / 100    (inter-state)
-```
-
-### Invoice aggregation and round-off
-
-```text
-total_taxable = Σ line.taxable_amount
-total_cgst    = Σ line.cgst_amount
-total_sgst    = Σ line.sgst_amount
-total_igst    = Σ line.igst_amount
+total_taxable = Σ line.taxable
+total_cgst/sgst/igst = Σ line.<component>
 raw_total     = total_taxable + total_cgst + total_sgst + total_igst
-rounded_total = raw_total rounded to nearest whole rupee (ROUND_HALF_UP)
-round_off     = rounded_total - raw_total          # may be + or -
+rounded_total = round_to_rupee(raw_total)          # ROUND_HALF_UP
+round_off     = rounded_total - raw_total           # may be + or -
 grand_total   = raw_total + round_off               # == rounded_total
 ```
 
-### Golden fixture verification
+Golden checks (Req 28): 043 → 12280 + 1105.20 + 1105.20 = 14490.40, rounds to 14490.00, round_off −0.40. 089 → 8332 + 749.88 + 749.88 = 9831.76, rounds to 9832.00, round_off +0.24.
 
-- Invoice 043: taxable 12,280.00; CGST 1,105.20; SGST 1,105.20; round_off −0.40; grand 14,490.00.
-  - raw = 12280 + 1105.20 + 1105.20 = 14490.40; rounded = 14490.00; round_off = −0.40. ✓
-- Invoice 089: taxable 8,332.00; CGST 749.88; SGST 749.88; round_off +0.24; grand 9,832.00.
-  - raw = 8332 + 749.88 + 749.88 = 9831.76; rounded = 9832.00; round_off = +0.24. ✓
+Pure, deterministic, no I/O/clock/network. Functions accept explicit inputs and return value objects.
 
-These are encoded as pytest regression fixtures (Req 21).
+## 6. Tax Grouping (Tax Summary)
 
-### Amount in words
+Grouping key is the composite **{HSN/SAC + tax treatment + applicable rate(s)}**, not HSN/SAC alone (finding 3.4). Each `TaxSummaryRow` carries hsn_sac, treatment, rate(s), taxable_value, cgst/sgst/igst amounts, total_tax. The engine builds the summary by folding lines into the composite key, then asserts reconciliation: Σ summary taxable == total_taxable and Σ summary tax components == invoice tax totals. A test fails the build if reconciliation is off by any paise.
 
-A dedicated helper wraps `num2words` (Indian numbering) to produce:
-- Grand total: `INR Fourteen Thousand Four Hundred Ninety Only`.
-- Tax amount with paise: `INR ... and Forty Paise Only`.
+## 7. Persistence Model
 
-Words are derived from final Decimal values only; never entered manually (Req 9.3).
+SQLite in the per-user data dir (`config/paths.py`). Tables:
 
-## Invoice Numbering
-
-A dedicated `invoice_sequences` table holds (company_id, financial_year, prefix, next_sequence). Numbering never uses `MAX(invoice_number)` (Req 4.2).
-
-At finalization, within a single transaction:
-
-```text
-BEGIN
-  reserve next_sequence for (company, financial_year)  -- UPDATE ... RETURNING / atomic increment
-  build invoice_number = PREFIX/FY/zero-padded-sequence
-  persist invoice header + lines + snapshot + totals
-COMMIT   (ROLLBACK on any failure)
+```
+companies(id, ... , active)
+customers(id, company_id, ... , is_active)
+assets(id, kind, version, sha256, stored_path, created_at)
+numbering_config(company_id, scope, prefix, pad_width, start_value, fy_scheme)
+invoice_sequences(company_id, financial_year, prefix, next_sequence, high_water_mark)
+invoices(id, company_id, customer_id, status, payment_status, invoice_number NULL-until-final,
+         invoice_date, place_of_supply_state, place_of_supply_code, template_version,
+         logo_asset_id, signature_asset_id, cancelled_at, cancel_reason, replacement_invoice_id,
+         totals... (INTEGER paise), snapshot_json, created_at, updated_at)
+invoice_items(id, invoice_id, sequence, job_ref, component, operation, description, specification,
+              hsn_sac, quantity_millis, unit, rate_paise, discount_hundredths, tax_rate_hundredths,
+              taxable_paise, cgst_paise, sgst_paise, igst_paise)
+app_settings(key, value)
+schema_version(version)
+service_templates(id, ...)   -- optional / P2
 ```
 
-Cancelling does not free a number; duplicating creates a new draft that receives its own number at finalization (Req 4.5, 4.6).
+Money columns are INTEGER paise; quantity/percent use the scaled integers from §3. The finalized snapshot is stored (structured columns for query + a `snapshot_json` capturing the full invoice-facing document for exact reproduction). Draft invoices have `invoice_number = NULL`.
 
-## Application Services
+Constraints: FK on all references; partial UNIQUE index on `invoice_number` where NOT NULL; CHECK on `status` and `payment_status`; draft delete cascades to `invoice_items`. Parameterized SQL only.
 
-| Service | Responsibility |
-|---|---|
-| `CompanyService` | Load/save the single active company; validate GSTIN/email/IFSC formats. |
-| `CustomerService` | CRUD + search customers; archive (is_active=false) instead of delete. |
-| `CalculationService` | Sole owner of line/tax/round-off/totals + amount-in-words. |
-| `InvoiceService` | Create/edit draft, validate, finalize (transactional), cancel, duplicate, list/search. Orchestrates numbering + calculation + snapshot. |
-| `PDFService` | Build render DTO from stored invoice, invoke `InvoiceRenderer`, return PDF bytes/file. |
-| `PrintService` | Print an existing PDF via a platform print adapter. |
-| `BackupService` | Timestamped backup, validated restore with safety backup + confirmation. |
-| `SettingsService` | Persist company/bank/tax defaults, numbering config, default notes/terms, export/backup paths. |
+## 8. Repository Contracts
 
-Services raise typed errors (`ValidationError`, `DatabaseError`, `PDFGenerationError`, `PrinterError`, `BackupError`) that the UI converts to friendly messages (Req 20.4). Business code never shows dialogs directly.
+`domain/repositories.py` defines typed `Protocol` ports: `CompanyRepository`, `CustomerRepository`, `InvoiceRepository`, `SequenceRepository`, `AssetRepository`, `SettingsRepository`. Methods return/accept domain models (Decimal), not rows. SQLite implementations live in `infrastructure/db/` and own the paise/scale conversions. Services depend on the ports only, enabling in-memory fakes for unit tests.
 
-## Persistence
+## 9. Invoice Numbering Service
 
-### Tables
+`numbering_service.py` allocates from `invoice_sequences` (never `MAX()`, D-012):
 
-```text
-companies            (single active company; multi-company deferred)
-customers            (is_active flag)
-invoices             (fk company_id, customer_id + snapshot columns, status, payment_status, totals, notes, terms, declaration)
-invoice_items        (fk invoice_id, all structured + calculated fields)
-invoice_sequences    (company_id, financial_year, prefix, next_sequence)
-app_settings         (key/value or typed settings; defaults, paths, numbering config)
-schema_version       (migration tracking)
-service_templates    (optional, P2)
+```
+BEGIN IMMEDIATE
+  row = SELECT ... FOR the (company, financial_year, prefix) scope   # created on first use with start_value
+  seq = row.next_sequence
+  UPDATE next_sequence = seq + 1,
+         high_water_mark = MAX(high_water_mark, seq)
+  number = format(prefix, financial_year, seq, pad_width)
+COMMIT
 ```
 
-### Integrity & access rules
+Financial year derives from invoice date (Indian FY per Q-004). Backdated invoices allocate from the implied FY's sequence and are flagged (Q-012). Prefix changes affect only future allocations. Contention retries with a bounded backoff; on repeated failure it raises `NumberingError` without issuing a duplicate. The formatter is configurable (Q-002/Q-003). `high_water_mark` underpins restore reconciliation (§16).
 
-- Parameterized queries only; no string-built SQL (Req 17.2).
-- Foreign keys ON; unique constraint on invoice_number; CHECK constraints on status/payment_status enums (Req 17.3).
-- Draft delete cascades to its items; finalized/cancelled invoices are not hard-deleted through normal workflows (Req 15.6, 17.5).
-- Repository interfaces live in `domain/repositories`; SQLite implementations in `infrastructure/database`. Services depend on the interfaces.
+## 10. Invoice Lifecycle Service
 
-### Migrations
+`invoice_service.py` orchestrates use cases against repositories + calculation + numbering services.
 
-On startup: resolve app data dir → open SQLite → read `schema_version` → apply pending migrations in order → open app. An existing database is never overwritten due to a version bump (Req 17.4).
+- **Draft:** create/update persist partial data with `status=DRAFT`, `invoice_number=NULL`; only lightweight structural validation; missing required data returns non-blocking warnings (Req 8).
+- **Finalization:** strict, ordered, atomic (Req 9, §22).
+- **Cancel / Duplicate / Payment status:** §13, §14, §12.
 
-## PDF Generation
+Draft validation and finalization validation are separate code paths (finding 3.1): drafts use a permissive validator returning warnings; finalization uses a strict validator returning blocking errors.
 
-`InvoiceRenderer` consumes a prepared render DTO (never the DB) and composes focused components in vertical order (Req 13.2):
+## 11. Finalized Snapshot Model
 
-```text
-HeaderRenderer → InvoiceMetadata → PartyDetails(Bill/Ship) → ReferenceDetails
-→ LineItemsTable → TaxSummary → Totals → AmountWords → Payment(Bank/UPI QR)
-→ Notes → Terms → Declaration → Signature → Footer/PageNumber
-```
+On finalize, the service builds an immutable snapshot capturing every invoice-facing value (company, customer, bill-to/ship-to, GSTIN/state, references, each line's job/mould/operation/spec/HSN-SAC/qty/unit/rate/discount, tax rates+amounts, totals, payment terms, due date, notes, terms, declaration, bank/UPI display, pinned asset versions, template version) — Req 12, D-010. Stored as structured columns (for listing/search) plus `snapshot_json` (for exact reproduction). Reproduction reads only the snapshot; it never joins to live `companies`/`customers`.
 
-Key layout decisions (from PDF_LAYOUT.md):
+## 12. Payment Status
 
-- A4 portrait, ~12–15 mm margins, grayscale-safe, ReportLab tables/flowables with a `BaseDocTemplate` for repeating headers and page numbers.
-- Line-item table columns: #, Job/Mould, Operation, Description/Specification, HSN/SAC, Qty, Unit, Rate, Discount, Amount. Numeric columns right-aligned; technical text wraps and is never clipped (Req 13.3).
-- Grand total is the largest, boldest monetary value with a distinct border (Req 13.4).
-- Empty optional fields are omitted, not printed as blank labels (Req 13.7).
-- Multi-page: repeat line-item header, avoid row splits, keep totals + signature together, page numbers on every page (Req 13.6).
-- UPI QR rendered only when configured; no blank placeholder (Req 11.4).
+Independent field (D-015). Allowed: UNPAID/PARTIAL/PAID. Changing it updates only `payment_status` and `updated_at`; it never touches financials or the number. V1 has no ledger and no tracked paid amount (`PARTIAL` is a marker; amount tracking is Q-011).
 
-### Preview / Export / Print
+## 13. Cancellation
 
-One rendering implementation feeds preview, export, and print (Req 14.1). Export uses a deterministic filename derived from the invoice number, e.g. `INV_SE_26-27_043.pdf`, with a user-selectable path (Req 14.2). Printing sends the generated PDF to the OS printer through a replaceable adapter (Windows first) (Req 14.3). Reprint/re-export of a finalized invoice uses stored data and produces identical content (Req 14.4).
+`cancel(invoice_id, reason)` requires FINALIZED, sets `status=CANCELLED`, `cancelled_at`, `cancel_reason`; preserves snapshot and number; never deletes; may set `replacement_invoice_id` (Req 14, D-016). History and reprints show cancelled state (watermark is Q-010).
 
-## UI Design
+## 14. Duplication
 
-Five screens (Req 20.1), each backed by a controller/view-model that calls services (no SQL/GST in widgets):
+`duplicate(invoice_id)` reads the source, copies editable business content (parties selection, references, lines, notes/terms) into a new `DRAFT`; excludes id, finalized state, final number, payment status (Req 16, D-017). The duplicate finalizes through the normal path and gets a fresh number.
 
-- **Dashboard** — New Invoice, recent invoices, quick search, basic counts.
-- **Customers** — list (model/view table), search, add/edit/view/duplicate, archive.
-- **Create/Edit Invoice** — sections for Customer, Invoice details, References, Mould/job info, Line items (editable table), Taxes, Totals, Notes, Terms; actions Save Draft, Finalize, Preview, Print, Export PDF, Cancel.
-- **Invoice History** — search + filters (number, customer, date range, status), sortable list, view/preview/print/export/duplicate/cancel.
-- **Settings** — Company, Bank, Logo, Signature/stamp, Invoice numbering, Default tax, Default notes, Default terms, Backup/Restore, Export location.
+## 15. Backup / Restore
 
-Interaction rules:
+`backup_service.py` (D-018): backup uses SQLite's online backup API to a consistent snapshot, then assembles a package = {db snapshot, schema/app version, required asset versions, manifest with sizes + SHA-256}. Never a raw copy during writes. Restore: validate manifest/integrity → create safety backup of current data → confirm → restore atomically → run numbering reconciliation (§16). On failure, roll back to the safety backup (Req 15). Auto-backup policy is opt-in (Q-014).
 
-- Keyboard shortcuts: Ctrl+N/S/P/F, Escape, Tab/Shift+Tab; line-item entry minimizes mouse use (Req 20.2).
-- Field-level validation messages; blocking errors vs non-blocking warnings distinguished (Req 20.3, 36 of INVOICE_RULES).
-- Totals update live via CalculationService as line items change.
-- Long operations (large PDF, backup, restore) run off the UI thread (Req 20.7).
+## 16. Restore Numbering Reconciliation
 
-## Error Handling
+Critical integrity mechanism (finding 3.6, D-018). Each sequence row stores a monotonic `high_water_mark`. Because the app is single-computer, the high-water mark reflects the highest number ever issued. After a restore, the restored DB may be behind reality. The service:
+1. Reads restored sequences and their high-water marks.
+2. Enters a "reconciliation pending" state that **blocks new invoice issuance**.
+3. Requires explicit operator confirmation; on confirm, advances `next_sequence` to at least `high_water_mark + 1` so post-backup numbers are never reused.
+Exact UX (auto-advance vs manual) is Q-009; the safe interim (block + confirm + advance) is implemented.
 
-Errors are handled at layer boundaries. Infrastructure raises specific errors; services translate/propagate typed application errors; UI maps them to business-friendly messages and never shows raw stack traces (Req 20.4). Technical detail is written to `logs/app.log`; passwords/credentials/unneeded PII are never logged (Req 20.5, 32).
+## 17. PDF Render DTO
 
-## File Storage
+`application/render_dto.py` defines an immutable view model containing everything the renderer needs: preformatted strings, resolved (already-calculated) amounts, tax summary rows, party blocks, reference key/value pairs (empty ones omitted, Req 19.6), resolved asset bytes/paths for the pinned versions, template version, and page metadata. `pdf_service.py` builds it from the stored snapshot. The renderer receives only this DTO (D-011).
 
-Platform-aware user data directory (Req 17.1, 23.2):
+## 18. ReportLab Renderer
 
-```text
-<AppData>/InvoiceGenerator/
-├── database/invoices.db
-├── exports/
-├── backups/
-├── assets/ (logo, signature)
-└── logs/app.log
-```
+`infrastructure/pdf/renderer.py` uses a `BaseDocTemplate` with a frame + `PageTemplate` for repeating line-item headers and page numbers. Composed components (each a focused function/class consuming a slice of the DTO): Header/Branding, InvoiceMetadata, PartyDetails (Bill/Ship), ReferenceDetails, LineItemsTable, TaxSummary, Totals, AmountWords, Payment (Bank + optional UPI QR), Notes, Terms, Declaration, Signature, Footer — rendered in the Req 19.2 order.
 
-No hardcoded Unix paths; a path abstraction resolves the OS-appropriate location. User data is separate from the install directory so upgrades never destroy invoices (Req 23.2).
+Robustness (finding 3.16, Req 19): A4 portrait; long text wraps via `Paragraph` flowables (never clipped); tables split across pages repeating headers; special characters `& < > ₹ ×` handled (XML-escape for Paragraph, embed a font with ₹/× glyphs); missing logo/signature/QR omitted gracefully; grand total most prominent; no sub-readable font shrinking to force one page. The renderer never recalculates. Template version selects the layout variant (§19-template, Req 18).
 
-## Backup & Restore
+## 19. PySide6 Presentation Layer
 
-`BackupService` creates timestamped copies of `invoices.db`, retains multiple versions, and supports optional automatic backups. Restore validates the selected backup, takes a safety backup of the current DB, requires confirmation, then swaps and reloads — never a silent overwrite (Req 18).
+Screens (Req 25.1): Dashboard, Customers, Create/Edit Invoice, Invoice History, Settings. Each has a controller/view-model calling application services; widgets contain no SQL and no calculations (steering). Model/view tables for customer list, invoice history, and the line-item editor. Totals refresh live via `CalculationService`. Keyboard shortcuts Ctrl+N/S/P/F, Escape, Tab. Long operations (PDF, backup, restore) run on a worker thread (`QThread`/`QThreadPool`) to keep the UI responsive (Req 25.7). The invoice form clearly separates "Save Draft" (permissive) from "Finalize" (strict).
 
-## Testing Strategy
+## 20. Composition Root
 
-Tests follow the architecture (ARCHITECTURE.md §41):
+`bootstrap.py` is the single wiring point (D-021): open `SQLiteConnection` → construct repositories → construct services (constructor injection) → construct controllers → build `MainWindow`. Introduced early (Phase 7) so services/renderer are wired and testable before UI screens exist. No service locator, no global container, no module-level singletons holding mutable state.
 
-- **Unit** — GST/discount/round-off calculations, amount-in-words, invoice numbering, validation, domain rules. Includes the two golden invoice fixtures asserting exact taxable/CGST/SGST/round-off/grand-total values (Req 21).
-- **Repository/integration** — customer & invoice persistence, transactional finalization + rollback, sequence handling, migrations, draft cascade delete.
-- **Service** — create/finalize/cancel/duplicate invoice, search/filter, backup/restore orchestration, snapshot integrity (editing a master does not change a finalized invoice).
-- **PDF** — file generated, opens, A4 page size, correct page count, required text/values present, golden invoice totals reproduced. Visual inspection (alignment, branding, QR, signature, page breaks, B/W print) is a manual acceptance step.
+## 21. Error Handling
 
-The two real invoices are permanent regression fixtures for both calculation and PDF value checks.
+`application/errors.py` defines typed errors: `ValidationError` (with field + blocking/warning), `NumberingError`, `FinalizationError`, `DatabaseError`, `PDFGenerationError`, `PrinterError`, `BackupError`, `RestoreError`. Infrastructure raises specific errors; services translate/propagate; the UI boundary maps them to friendly messages and logs technical detail to `logs/app.log` (no secrets/PII). Business code never opens dialogs (Req 25.4–25.6).
+
+## 22. Transaction Boundaries
+
+Finalization is one transaction (Req 9, finding 3.1): `BEGIN IMMEDIATE` → strict validate → allocate number (advancing high-water mark) → build + persist snapshot + items + totals → pin asset/template versions → `COMMIT`; any failure → `ROLLBACK` (no partial invoice, no consumed-but-reusable number). Draft saves are their own small transactions. Restore is transactional with a safety-backup fallback (§15–16).
+
+## 23. Testing Strategy
+
+Follows steering `testing-rules.md`:
+- Unit: calculation engine (all paths), tax grouping reconciliation, round-off, amount-in-words, numbering formatting/allocation, validators (draft vs finalize), money round-trip (property test).
+- Golden fixtures: 043 and 089 as **aggregate** fixtures (exact taxable/CGST/SGST/round-off/grand total); line-level fixtures labeled pending source (Q-013).
+- Persistence/integration: repositories, constraints, migrations, cascade delete, paise round-trip.
+- Lifecycle: draft edit, strict finalization + rollback, snapshot immutability, cancellation, duplication.
+- Numbering: allocation, uniqueness, no reuse, FY rollover, backdated case, high-water mark.
+- Restore: safe backup, manifest validation, safety backup, reconciliation gate, failure recovery.
+- PDF: file/opens/A4/page count/required text/golden totals/optional-field omission/long-content wrap/special chars/missing assets.
+- Windows acceptance: early spike + final end-to-end. Money asserts exact Decimal/paise; no network; deterministic (injected clock/paths).
+
+## 24. Windows Printing / Preview Boundary
+
+Proven **early** via a spike (Req 26, finding 3.14) before production UI: generate a sample PDF, open/preview it on Windows, and print to a Windows printer. `infrastructure/printing/` defines a `PrintPort` with a `WindowsPrintAdapter`; the chosen mechanism (shell print verb vs default-viewer open + OS print) is decided from spike evidence (Q-015). Business/UI layers depend on the port, not Windows APIs.
+
+## 25. Packaging
+
+PyInstaller Windows build bundling Python + PySide6 + ReportLab + qrcode + Pillow + num2words (D-013, Req 27). User data (db, backups, exports, assets, logs) resolves to the per-user data directory via `config/paths.py`, separate from the install dir, so upgrades preserve invoices. An installation test verifies a clean install starts, creates the data dir, and opens the app; an end-to-end acceptance verifies create → finalize → PDF → print → backup → restore on Windows.
 
 ## Requirements Traceability (summary)
 
-- Calculation/round-off/words → Req 7, 9, 21; CalculationService.
-- GST intra/inter + tax summary → Req 8; CalculationService + TaxSummary.
-- Numbering → Req 4; invoice_sequences + transactional reservation.
-- Lifecycle + snapshot immutability → Req 10, 16; InvoiceService + snapshot columns.
-- PDF layout/preview/print → Req 13, 14; PDFService + InvoiceRenderer + PrintService.
-- Persistence/integrity/migrations → Req 17; SQLite repos + schema_version.
-- Backup/restore → Req 18; BackupService.
-- Offline → Req 19; no network code anywhere.
-- UI/usability/errors/logging → Req 20; controllers + typed errors + logging.
-- Company/Customer masters → Req 1, 2; CompanyService/CustomerService.
-- Packaging/data separation → Req 23; PyInstaller + user data dir.
+Numeric model → Req 5 (§3). GST/scope/PoS → Req 6, 11 (§4). Engine/grouping/totals/round-off → Req 7, 28 (§5, §6). Draft vs finalize → Req 8, 9 (§10, §22). Numbering → Req 10 (§9). Snapshot → Req 12 (§11). Payment → Req 13 (§12). Cancellation → Req 14 (§13). Backup/restore/reconciliation → Req 15 (§15, §16). Duplication → Req 16 (§14). Assets → Req 17 (§7 assets, §17). Template → Req 18 (§18). PDF/robustness → Req 19 (§17, §18). Preview/print → Req 20, 26 (§18, §24). History → Req 21 (§19). Words → Req 22 (§5/§18). Persistence → Req 23 (§7, §8). Offline → Req 24 (all; no network). UI/errors → Req 25 (§19, §21). Packaging → Req 27 (§25). Templates P2 → Req 29 (§7 table).

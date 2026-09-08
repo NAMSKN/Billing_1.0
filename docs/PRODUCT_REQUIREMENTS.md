@@ -1,135 +1,214 @@
 # PRODUCT REQUIREMENTS
+
 ## Local Desktop Billing Application for Mould / Mould-Machining Business
 
-**Document Version:** 1.0  
-**Status:** Requirements Baseline  
-**Scope:** Local desktop invoice generation only  
+**Document Version:** 2.0  
+**Status:** Revised Requirements Baseline  
+**Scope:** Local desktop billing and invoice generation only  
+**Primary Platform:** Windows  
 **Primary Output:** Professional GST tax invoice PDF suitable for printing and sharing  
-**Offline Requirement:** 100% local; no cloud or online dependency
+**Offline Requirement:** Core application works without internet access
 
 ---
 
-# 1. Product Overview
+# 1. Product Purpose
 
-Build a **single-computer desktop billing application** for a mould / mould-machining business in India.
+Build a simple, reliable **desktop billing application** for a mould / mould-machining business in India.
 
-The application is intended primarily to:
+The application exists primarily to help a billing operator:
 
-- Maintain company billing information.
-- Maintain customer information.
-- Create and manage tax invoices.
-- Enter mould/job/machining details.
-- Automatically calculate GST and invoice totals.
-- Generate professional A4 PDF invoices.
-- Print invoices using a local printer.
-- Save invoice data locally.
-- Search and view previously created invoices.
-- Back up and restore local billing data.
+```text
+Select Customer
+      ↓
+Enter Mould / Job / Machining Work
+      ↓
+Enter Quantity and Rate
+      ↓
+Review GST and Total
+      ↓
+Finalize Invoice
+      ↓
+Generate PDF
+      ↓
+Print / Export
+```
 
-The application is **not an ERP, CRM, accounting suite, manufacturing system, or cloud SaaS product**.
+The product is intentionally focused on billing.
 
-The application must remain useful without an internet connection.
+It is **not** intended to become an ERP, CRM, manufacturing management system, inventory platform, accounting package, or cloud service.
 
 ---
 
-# 2. Source Documents
+# 2. Product Principles
 
-The requirements are based on the following references:
+The application must prioritize:
+
+1. Financial correctness.
+2. Stable invoice history.
+3. Fast day-to-day invoice entry.
+4. Clear mould/machining information.
+5. Professional PDF output.
+6. Reliable local data storage.
+7. Safe backup and restore.
+8. Offline operation.
+9. Simple operation for non-technical users.
+
+When simplicity and additional features conflict, prefer simplicity.
+
+---
+
+# 3. Source Documents
+
+The product requirements are based on:
 
 1. `INV NO 043 DI-TECH MOULDS.pdf`
 2. `INV NO 089 BMSS STEEL.pdf`
 3. Tata Motors tax invoice reference image
 
-The two Tally invoices demonstrate the actual billing information used for machining/gundrilling work. The Tata Motors sample is used primarily as a reference for a cleaner, more professional invoice presentation.
+The two Tally invoices are the primary source for actual billing fields and mould/machining information.
+
+The Tata reference is primarily a visual reference for a cleaner presentation.
+
+The reference branding, automotive content and unrelated business-specific information must not be copied into the product.
 
 ---
 
-# 3. Product Scope
+# 4. Product Scope
 
-## 3.1 In Scope
+## 4.1 Version 1 — In Scope
 
-### Core
-- Company master
-- Customer master
+### Core Billing
+
+- Company configuration
+- Customer management
 - Invoice creation
-- Invoice editing while still a draft
+- Draft invoice saving
+- Draft invoice editing
 - Invoice finalization
+- Invoice cancellation
+- Invoice duplication
 - Invoice numbering
 - Invoice history
-- Invoice search/filter
-- GST calculation
-- Amount-to-words conversion
+- Invoice search
+- Invoice filtering
+- Invoice preview
 - PDF generation
-- PDF preview
 - PDF export
 - Local printing
-- Payment information on invoice
-- Notes and terms
-- Local backup and restore
 
-### Mould / Machining
-- Job/mould reference
-- Operation/process
-- Technical specification
+### Mould / Machining Billing
+
+- Job / mould reference
+- Component / part reference
+- Operation / process
+- Service type
+- Description
+- Specification
 - Dimensions
 - Quantity
 - Unit
 - Rate
+- Discount
 - HSN/SAC
-- Free-text description
 
-## 3.2 Out of Scope
+### Tax
 
-Do not build these into Version 1:
+- Taxable value
+- CGST
+- SGST
+- IGST
+- Configurable tax rates
+- HSN/SAC tax summary
+- Round-off
+- Grand total
+- Amount in words
+- Tax amount in words
+
+### Payment Information
+
+- Payment terms
+- Due date
+- Bank details
+- UPI ID
+- Optional UPI QR
+- Local payment status
+
+### Documents
+
+- Notes
+- Terms & Conditions
+- Declaration
+- Authorized signatory
+- Signature/stamp
+- Company logo
+- Page numbering
+
+### Data Protection
+
+- Local persistence
+- Local backup
+- Local restore
+- Historical invoice preservation
+
+---
+
+# 5. Explicitly Out of Scope
+
+Do not implement the following in Version 1:
 
 - Cloud storage
-- Online synchronization
-- REST API
-- Web application
-- Mobile application
+- Cloud synchronization
+- REST APIs
+- Backend server
+- Remote database
+- SaaS architecture
+- Multi-tenant architecture
 - Online customer portal
 - Online payment gateway
-- Multi-tenant SaaS architecture
-- Real-time synchronization
+- Mandatory user accounts
+- Online GSTIN verification
+- Email delivery service
+- Kafka
+- Redis
+- Message queues
+- Microservices
 - Payroll
 - CRM
 - Purchase management
-- Full inventory management
 - Manufacturing planning
 - IoT integration
-- Kafka / Redis / message queues
-- Server-side database
-- Mandatory user accounts
-- Live GSTIN verification
-- Email delivery service
+- Full inventory management
+- Full accounting ledger
+- Multi-user synchronization
 - Automatic online software updates
 
+If any future feature requires internet access, it must be explicitly approved as a separate scope change.
+
 ---
 
-# 4. User Profile
+# 6. Primary User
 
-The primary user is a small-business billing operator who needs to generate invoices quickly.
+The primary user is a business billing operator.
 
-The application should favor:
+The user should be able to create an invoice without technical knowledge.
 
-- Speed
-- Clear forms
+The interface should optimize for:
+
 - Minimal typing
-- Reusable customer information
-- Reusable common service information
-- Automatic calculations
-- Professional PDF output
-- Reliable local storage
-
-The user should not need technical knowledge to operate the application.
+- Reuse of customer information
+- Quick line-item entry
+- Keyboard-friendly navigation
+- Clear calculations
+- Immediate PDF preview
+- Fast printing
 
 ---
 
-# 5. Company / Supplier Master
+# 7. Company Master
 
-The application shall provide a company settings screen.
+The application shall support one active company in Version 1.
 
-## 5.1 Company Information
+## 7.1 Company Details
 
 Support:
 
@@ -138,40 +217,46 @@ Support:
 - GSTIN/UIN
 - State name
 - State code
-- Email
 - Phone/mobile
+- Email
 - Logo
 
-The sample Tally invoices contain supplier information such as company name, complete postal address, GSTIN, state/state code and email.
-
-## 5.2 Bank Information
+## 7.2 Bank Details
 
 Support:
 
 - Bank name
 - Account number
-- Branch name
-- IFSC code
+- Branch
+- IFSC
 
-These fields are printed in the invoice footer.
-
-## 5.3 Signature / Branding
+## 7.3 Payment Details
 
 Support:
 
-- Company logo
-- Authorized signatory name/text
-- Optional signature/stamp image
+- UPI ID
+- Optional QR configuration
 
-The logo and signature/stamp are presentation elements and should be configurable locally.
+## 7.4 Document Branding
+
+Support:
+
+- Logo
+- Authorized signatory name
+- Signature/stamp image
+- Default declaration
+- Default notes
+- Default Terms & Conditions
+
+Changes to company settings must not modify the content of previously finalized invoices.
 
 ---
 
-# 6. Customer Master
+# 8. Customer Master
 
-The application shall allow customers to be created once and reused across invoices.
+Customers should be created once and reused.
 
-## 6.1 Customer Information
+## 8.1 Customer Details
 
 Support:
 
@@ -182,45 +267,100 @@ Support:
 - Phone
 - Email
 
-## 6.2 Billing Information
+## 8.2 Bill-To Details
 
 Support:
 
 - Billing address
 - Billing state
+- Billing state code
 
-## 6.3 Shipping / Consignee Information
+## 8.3 Ship-To / Consignee Details
 
 Support:
 
-- Ship-to / consignee address
-- Ship-to state
+- Consignee name
+- Shipping address
+- Shipping state
+- Shipping state code
 - Optional godown / warehouse address
 
-The sample invoices distinguish between:
+The application must support Bill-To and Ship-To being different.
 
-- Consignee (Ship to)
-- Buyer (Bill to)
+The application should also support them being identical.
 
-The application must preserve this distinction even when both addresses are identical.
+## 8.4 Customer Lifecycle
+
+Customers can be:
+
+```text
+Active
+Inactive
+```
+
+Inactive customers remain available for historical invoices but should not normally appear in new invoice selection.
+
+Customer deletion should therefore be archival rather than destructive when historical invoices depend on that customer.
 
 ---
 
-# 7. Invoice Header
+# 9. Invoice Creation
 
-Every invoice shall support the following information.
+A new invoice starts as a **Draft**.
 
-## 7.1 Required / Core
+A draft is editable and may be incomplete.
+
+A draft must be saveable before it is complete.
+
+Examples of incomplete draft states:
+
+- No customer selected yet.
+- Line item partially entered.
+- Optional references missing.
+- Some values still being edited.
+
+The application must not reject the entire draft merely because it is not yet ready for finalization.
+
+---
+
+# 10. Draft Input Rules
+
+Draft input must preserve what the user has actually entered.
+
+Examples:
+
+```text
+Customer selected
+Description entered
+Quantity entered
+Rate not yet entered
+```
+
+must remain a valid draft state.
+
+However:
+
+- malformed numeric input must not silently become zero;
+- invalid final values must prevent finalization;
+- incomplete fields must be reported clearly.
+
+Draft validation and finalization validation are different stages.
+
+---
+
+# 11. Invoice Header
+
+Each invoice supports:
+
+## Required for Finalization
 
 - Tax Invoice title
 - Invoice number
 - Invoice date
-- Buyer / customer
-- At least one line item
+- Customer
+- At least one valid line item
 
-## 7.2 Optional Reference Information
-
-Support:
+## Optional Reference Information
 
 - Delivery Note number
 - Delivery Note date
@@ -228,7 +368,7 @@ Support:
 - Reference date
 - Buyer's Order / PO number
 - PO date
-- Dispatch document number
+- Dispatch Document number
 - Dispatch date
 - Bill of Lading / LR-RR number
 - Motor Vehicle number
@@ -237,77 +377,111 @@ Support:
 - Terms of delivery
 - Other references
 
-The sample Tally invoices contain these fields, with some fields populated and some left blank.
-
-## 7.3 Commercial Information
-
-Support:
+## Commercial Information
 
 - Payment terms
 - Due date
 - Place of supply
 
-The reference image additionally emphasizes place of supply and due date.
+Optional fields should not produce awkward empty labels in the PDF.
 
 ---
 
-# 8. Invoice Numbering
+# 12. Invoice Numbering
 
-Invoice numbers shall be generated locally.
+Invoice numbers are generated locally.
 
-Example format from the sample:
+Example:
 
-`SE/26-27/043`
-
-Requirements:
-
-- Configurable prefix
-- Financial-year component
-- Sequential numeric portion
-- Automatic next-number generation
-- Duplicate numbers must be prevented
-- Finalized invoice numbers must not be casually reused
-
-The number sequence should be stored locally.
-
-Invoice numbering must not depend on a server.
-
----
-
-# 9. Mould / Job Information
-
-This is the most important domain-specific area.
-
-The actual sample invoices contain machining information inside the service description.
-
-Examples include:
-
-- `DT-663`
-- `PUNCH GUN DRILLING`
-- `DRILL DIA 9X307MM DEEP`
-- `QTY 16 NOS.`
-- `6 SIDE MACHINING 510X430X130`
-- `6 SIDE MACHINING 510X430X150`
-
-The new application should improve this by allowing structured technical information rather than requiring everything to be entered into one long description.
-
-## 9.1 Recommended Structured Fields
+```text
+SE/26-27/043
+```
 
 Support:
 
-- Job / Mould number
-- Component / Part number
-- Operation / Process
+- Configurable prefix
+- Financial year
+- Sequential number
+- Optional configurable zero-padding
+
+Rules:
+
+1. Finalized invoice numbers must be unique.
+2. Finalized invoice numbers must never be reused.
+3. Cancellation does not release a number.
+4. Duplicating an invoice does not reuse its number.
+5. Invoice numbering must work independently for each financial year.
+6. Initial sequence must be configurable for businesses migrating from an existing billing system.
+7. Backdated invoices must use the financial-year rules associated with their invoice date.
+8. Sequence reservation must be safe against duplicate issuance.
+
+The system must not assume the next number is `090` merely because a sample invoice ends in `089`.
+
+---
+
+# 13. Financial Year
+
+The application must use a defined financial-year rule.
+
+The behavior around:
+
+```text
+31 March
+1 April
+```
+
+must be deterministic.
+
+The system must support:
+
+- Normal current-year invoices
+- Backdated invoices
+- Financial-year rollover
+- Existing sequence initialization
+- Prefix changes according to configured policy
+
+The exact business policy for backdated invoice numbering must be documented before final implementation.
+
+---
+
+# 14. Mould / Job Information
+
+Mould and machining information is the primary domain-specific requirement.
+
+The actual invoices include information such as:
+
+```text
+DT-663
+PUNCH GUN DRILLING
+DRILL DIA 9X307MM DEEP
+QTY 16 NOS.
+```
+
+and:
+
+```text
+6 SIDE MACHINING 510X430X130
+6 SIDE MACHINING 510X430X150
+```
+
+The new application must preserve this information while improving its structure.
+
+---
+
+# 15. Structured Mould / Machining Fields
+
+A line item should support:
+
+- Job / mould number
+- Component / part number
+- Operation / process
 - Service type
+- Description
 - Specification
 - Dimensions
-- Additional description
+- Additional technical details
 
-## 9.2 Technical Flexibility
-
-Do not assume every mould job uses the same technical fields.
-
-The user should be able to describe:
+The system should allow information such as:
 
 - Diameter
 - Depth
@@ -315,41 +489,45 @@ The user should be able to describe:
 - Width
 - Height
 - Size
-- Other technical specifications
 
-A general `Specification` or `Technical Details` field should remain available for information that does not fit fixed fields.
+but must not force every job into identical technical fields.
 
-## 9.3 Important Rule
-
-Structured mould fields are preferred, but a free-text description must always remain available.
+The general Specification / Technical Details field remains available.
 
 ---
 
-# 10. Invoice Line Items
+# 16. Line Items
 
-Each invoice must support one or more line items.
+An invoice must contain one or more line items before finalization.
 
-Each line item should support:
+Each line item supports:
 
-| Field | Requirement |
+| Field | Required |
 |---|---|
-| Serial number | Automatic |
-| Job / Mould reference | Optional but recommended |
+| Sequence | Automatic |
+| Job / Mould reference | Optional |
+| Component / Part | Optional |
 | Operation / Process | Optional |
-| Description | Required |
+| Service type | Optional |
+| Description | Required for finalization |
 | Specification | Optional |
-| HSN/SAC | Required for taxable service |
-| Quantity | Required |
+| HSN/SAC | Required for taxable line |
+| Quantity | Required for normal billable line |
 | Unit | Required |
 | Rate | Required |
 | Discount % | Optional |
+| Tax rate | Required according to tax treatment |
 | Taxable amount | Calculated |
-| GST | Calculated |
+| Tax | Calculated |
 | Amount | Calculated |
 
-## 10.1 Units
+The description remains flexible even when structured technical fields are populated.
 
-The application should support arbitrary units such as:
+---
+
+# 17. Units
+
+The application supports units such as:
 
 - NOS
 - MM
@@ -358,288 +536,727 @@ The application should support arbitrary units such as:
 - SET
 - HOURS
 
-The unit must be selectable per line item.
+The unit list may be configurable.
 
-## 10.2 Multiple Operations
+Quantity precision must be independent from money precision.
 
-A single invoice must support multiple operations.
+For example:
 
-The BMSS STEEL invoice demonstrates two separate machining charges on the same invoice, each with its own description, quantity and rate.
+```text
+Quantity = 12.500
+```
 
----
+must not be incorrectly reduced to:
 
-# 11. HSN / SAC
+```text
+12.50
+```
 
-Every taxable line item shall support HSN/SAC.
-
-The sample machining service invoices use:
-
-`998898`
-
-for the service shown.
-
-The application may provide a default HSN/SAC, but it must remain configurable.
-
-Do not assume `998898` is universally applicable to every future service. The invoice system must allow the user to select/change the code.
+merely because monetary values use two decimals.
 
 ---
 
-# 12. Discount
+# 18. Line Item Calculation
 
-The sample Tally layout contains a discount column.
+For a normal line:
 
-The application shall support:
+```text
+Gross Amount = Quantity × Rate
+```
 
-- Discount percentage
-- Calculated discount amount
-- Taxable value after discount
+Then:
 
-Discount is optional and defaults to zero.
+```text
+Discount Amount = Gross Amount × Discount % / 100
+```
+
+Then:
+
+```text
+Taxable Amount = Gross Amount − Discount Amount
+```
+
+All financial calculations must use exact decimal arithmetic.
+
+No monetary calculation may rely on binary floating-point arithmetic.
 
 ---
 
-# 13. GST / Tax Requirements
+# 19. Discount
 
-The application shall support GST calculations required by the invoice.
+Discount is optional and defaults to:
 
-## 13.1 Intra-State
+```text
+0%
+```
 
-For an intra-state transaction:
+Rules:
 
-- CGST
-- SGST/UTGST where applicable
+- Minimum: 0%
+- Maximum: 100%
+- Discount is applied before GST.
+- Discount amount is calculated automatically.
+- Taxable amount reflects the discount.
+
+---
+
+# 20. HSN / SAC
+
+Every taxable service line must support HSN/SAC.
+
+The sample invoices use:
+
+```text
+998898
+```
+
+The application may provide this as a configurable default.
+
+It must not be treated as the universal code for every future service.
+
+Multiple HSN/SAC codes may be used on one invoice.
+
+---
+
+# 21. GST / Tax
+
+The application supports normal domestic taxable transactions.
+
+## 21.1 Intra-State
+
+Use:
+
+```text
+CGST + SGST/UTGST where applicable
+```
 
 The sample invoices demonstrate:
 
-- CGST: 9%
-- SGST: 9%
+```text
+CGST 9%
+SGST 9%
+```
 
-on the shown 18% service charge.
+for an 18% service charge.
 
-## 13.2 Inter-State
+## 21.2 Inter-State
 
-For an inter-state transaction:
+Use:
 
-- IGST
+```text
+IGST
+```
 
-The Tata reference demonstrates an invoice using:
+The reference invoice demonstrates 18% IGST.
 
-- IGST: 18%
+## 21.3 Tax Rates
 
-## 13.3 Tax Rate
+Tax rates must be configurable.
 
-Tax rate must be configurable rather than hardcoded permanently to 18%.
+The application must not permanently hardcode:
 
-A default can be provided based on configured service settings.
+```text
+9% + 9%
+```
 
-## 13.4 Taxable Value
+or:
 
-For each line:
+```text
+18%
+```
 
-`Taxable Value = Line Base Amount - Discount`
+as the only supported rate.
 
-## 13.5 Tax Summary
+---
 
-The invoice should automatically produce an HSN/SAC-wise tax summary containing:
+# 22. Place of Supply
+
+Place of supply is an explicit invoice field.
+
+For the supported normal domestic workflow:
+
+```text
+Company State
+      +
+Place of Supply
+      ↓
+Tax Treatment
+```
+
+The application must not ambiguously switch between "customer state" and "place of supply" as tax authority.
+
+When Bill-To and Ship-To differ, the documented place-of-supply field remains the authoritative value for tax determination within the supported product scope.
+
+The exact supported business cases must be documented before production use.
+
+---
+
+# 23. GST Special-Case Scope
+
+Version 1 should explicitly support only the normal taxable flow unless the business approves additional cases.
+
+### Supported
+
+- Normal intra-state taxable supply
+- Normal inter-state taxable supply
+- Configurable tax rates
+
+### Not silently supported
+
+- Reverse charge
+- Exempt supply
+- Nil-rated supply
+- Zero-rated supply
+- Export
+- SEZ
+- Other special GST treatments
+
+A special case must not be silently represented as a normal 0% tax line.
+
+---
+
+# 24. Tax Calculation
+
+For an applicable line:
+
+```text
+CGST Amount = Taxable Amount × CGST Rate / 100
+SGST Amount = Taxable Amount × SGST Rate / 100
+IGST Amount = Taxable Amount × IGST Rate / 100
+```
+
+A normal line must not calculate both:
+
+```text
+CGST + SGST
+```
+
+and:
+
+```text
+IGST
+```
+
+at the same time.
+
+The application must determine the applicable tax treatment before calculating tax.
+
+---
+
+# 25. Tax Summary
+
+The tax summary is derived from line items.
+
+The grouping key must be:
+
+```text
+HSN/SAC
++
+Tax Treatment
++
+Applicable Tax Rate(s)
+```
+
+not HSN/SAC alone.
+
+The tax summary should contain:
 
 - HSN/SAC
 - Taxable value
-- CGST rate
-- CGST amount
-- SGST rate
-- SGST amount
-- IGST rate, when applicable
-- IGST amount, when applicable
-- Total tax amount
+- CGST rate/amount where applicable
+- SGST rate/amount where applicable
+- IGST rate/amount where applicable
+- Total tax
+
+The summary must reconcile exactly with line-level calculated values.
+
+The summary must not independently recalculate tax from an aggregated taxable value.
 
 ---
 
-# 14. Monetary Calculation Rules
+# 26. Money Precision
 
-All money calculations must use exact decimal arithmetic.
+All monetary values use exact decimal arithmetic.
 
-Do not use binary floating-point values for monetary calculations.
+Money includes:
 
-Amounts should be represented to two decimal places.
+- Rate
+- Discount amount
+- Taxable amount
+- CGST
+- SGST
+- IGST
+- Round-off
+- Grand total
+- Payment amounts where supported
 
-The application must calculate:
+Reject:
 
-1. Line base amount
-2. Discount
-3. Taxable amount
-4. Applicable GST
-5. Total tax
-6. Pre-round total
-7. Round-off adjustment
-8. Grand total
+- NaN
+- Infinity
+- Invalid decimal input
 
-The exact round-off behavior must reproduce the intended invoice total.
+Quantity and monetary precision are separate concepts.
 
-The two sample invoices provide useful golden test cases:
+The application must preserve values through:
+
+```text
+UI
+→ Domain
+→ Database
+→ PDF
+```
+
+without changing digits.
+
+---
+
+# 27. Money Storage
+
+The implementation must use an exact persistence representation.
+
+The database must not rely on floating-point storage for money.
+
+A preferred strategy is:
+
+```text
+Money in SQLite = integer paise
+```
+
+Example:
+
+```text
+₹123.45 → 12345
+```
+
+Other decimal fields such as quantity and percentage may use an exact canonical representation.
+
+The final implementation must document the serialization format and round-trip tests.
+
+---
+
+# 28. Round-Off
+
+The application must calculate round-off explicitly.
+
+Conceptually:
+
+```text
+Raw Total
+    ↓
+Rounded Total
+    ↓
+Round-Off = Rounded Total − Raw Total
+```
+
+Then:
+
+```text
+Grand Total = Raw Total + Round-Off
+```
+
+Round-off may be positive or negative.
+
+The rounding policy must be centralized and tested.
+
+The documented sample invoices must be reproducible:
 
 ### Invoice 043
 
-- Taxable value: ₹12,280.00
-- CGST: ₹1,105.20
-- SGST: ₹1,105.20
-- Round off: -₹0.40
-- Grand total: ₹14,490.00
+```text
+Taxable       ₹12,280.00
+CGST           ₹1,105.20
+SGST           ₹1,105.20
+Before Round  ₹14,490.40
+Round-Off        -₹0.40
+Grand Total   ₹14,490.00
+```
 
 ### Invoice 089
 
-- Taxable value: ₹8,332.00
-- CGST: ₹749.88
-- SGST: ₹749.88
-- Round off: ₹0.24
-- Grand total: ₹9,832.00
+```text
+Taxable        ₹8,332.00
+CGST             ₹749.88
+SGST             ₹749.88
+Before Round   ₹9,831.76
+Round-Off         ₹0.24
+Grand Total    ₹9,832.00
+```
 
-These values must be reproduced by automated calculation tests.
-
----
-
-# 15. Amount in Words
-
-The application shall automatically generate:
-
-### Invoice Total in Words
-
-Example:
-
-`INR Fourteen Thousand Four Hundred Ninety Only`
-
-### Tax Amount in Words
-
-Example:
-
-`INR Two Thousand Two Hundred Ten and Forty paise Only`
-
-The generated text must always reflect the calculated invoice values.
+These are aggregate regression values. Complete line-level reproduction should only be claimed when the original source inputs are available.
 
 ---
 
-# 16. Payment Information
+# 29. Amount in Words
 
-This application does not process online payments.
+The application automatically generates:
 
-It only displays payment information on the invoice and optionally records a local payment status.
+- Grand total in words
+- Total tax in words
 
-## 16.1 Invoice Payment Details
+Example:
 
-Support:
+```text
+INR Fourteen Thousand Four Hundred Ninety Only
+```
+
+Paise must be represented where applicable.
+
+The words must always be derived from the final calculated values.
+
+---
+
+# 30. Invoice Lifecycle
+
+Use explicit invoice states:
+
+```text
+DRAFT
+   ↓
+FINALIZED
+   ↓
+CANCELLED
+```
+
+Payment status is separate:
+
+```text
+UNPAID
+PARTIAL
+PAID
+```
+
+---
+
+# 31. Draft Rules
+
+A draft:
+
+- Can be created.
+- Can be incomplete.
+- Can be saved.
+- Can be reopened.
+- Can be edited.
+- Can be deleted.
+- Does not represent a finalized invoice.
+- Does not consume an official finalized invoice number.
+
+The application may use an internal draft ID.
+
+---
+
+# 32. Finalization Rules
+
+Finalization is the point at which an invoice becomes an official local billing record.
+
+Before finalization:
+
+1. Validate company details.
+2. Validate customer.
+3. Validate invoice date.
+4. Validate place of supply/tax treatment.
+5. Validate line items.
+6. Validate HSN/SAC where required.
+7. Validate quantity.
+8. Validate rate.
+9. Validate discount.
+10. Calculate taxes.
+11. Calculate totals.
+12. Generate/reserve official invoice number.
+13. Create invoice snapshots.
+14. Persist atomically.
+
+If any step fails:
+
+```text
+No finalized invoice
+No partial database state
+No unusable sequence update
+```
+
+---
+
+# 33. Finalized Invoice Immutability
+
+After finalization, the following cannot be freely edited:
+
+- Invoice number
+- Invoice date
+- Company invoice snapshot
+- Customer invoice snapshot
+- Bill-To
+- Ship-To
+- Place of supply
+- References
+- Line items
+- HSN/SAC
+- Quantity
+- Rate
+- Discount
+- Tax rates
+- Calculated taxes
+- Tax summary
+- Round-off
+- Grand total
+- Notes
+- Terms
+- Declaration
+- Payment details printed on the invoice
+- Template version
+- Asset versions
+
+Allowed operations:
+
+- View
+- Preview
+- Print
+- Export
+- Reprint
+- Change payment status
+- Cancel
+- Duplicate into a new draft
+
+---
+
+# 34. Historical Invoice Snapshot
+
+Finalized invoices must preserve the values used to produce the invoice.
+
+The snapshot must include:
+
+### Company
+
+- Name
+- Address
+- GSTIN
+- State
+- State code
+- Phone/email
+- Bank details
+- UPI details
+
+### Customer
+
+- Name
+- GSTIN
+- Billing address
+- Shipping/consignee address
+- State
+- Contact details
+
+### Invoice
+
+- Number
+- Date
+- Due date
+- Place of supply
+- Payment terms
+- References
+- Notes
+- Terms
+- Declaration
+
+### Lines
+
+- Job/mould reference
+- Component/part
+- Operation
+- Service type
+- Description
+- Specification
+- HSN/SAC
+- Quantity
+- Unit
+- Rate
+- Discount
+- Tax rates
+- Calculated amounts
+
+Historical invoices must not change because a master record is edited later.
+
+---
+
+# 35. Template and Asset Versioning
+
+Finalized invoices must preserve the presentation configuration required to reproduce them.
+
+Store/reference:
+
+- Template version
+- Logo version
+- Signature/stamp version
+- Other invoice assets used
+
+Changing the company's logo or signature later must not silently change an old invoice.
+
+Assets should be versioned locally.
+
+The application may store them outside SQLite, but the required historical versions must remain recoverable through backup.
+
+---
+
+# 36. Invoice Cancellation
+
+A finalized invoice must not be hard-deleted.
+
+Cancellation should preserve:
+
+- Invoice record
+- Invoice number
+- Original financial values
+- Original snapshots
+
+Record:
+
+- Cancellation timestamp
+- Cancellation reason
+
+Optionally record:
+
+- Replacement invoice reference
+
+The UI must distinguish:
+
+```text
+Discard Draft
+```
+
+from:
+
+```text
+Cancel Finalized Invoice
+```
+
+The application must not claim that local cancellation updates external GST filings or government systems.
+
+---
+
+# 37. Invoice Duplication
+
+Duplicating an invoice creates:
+
+```text
+Existing Invoice
+       ↓
+New Draft
+```
+
+Do not copy:
+
+- Original ID
+- Final invoice number
+- Finalized state
+- Payment status
+- Final calculated totals as authoritative values
+
+The duplicate should recalculate when finalized.
+
+Fields copied to the new draft should follow a defined product policy for:
+
+- Customer
+- Technical information
+- Payment terms
+- References
+- Dates
+- Notes
+- Terms
+
+---
+
+# 38. Payment Status
+
+Payment status is local application information.
+
+Supported:
+
+```text
+UNPAID
+PARTIAL
+PAID
+```
+
+Changing payment status must not alter:
+
+- Invoice number
+- Invoice date
+- Line items
+- Taxes
+- Grand total
+
+Version 1 does not provide a full receipts ledger.
+
+Do not claim an authoritative outstanding balance from a simple `PARTIAL` flag.
+
+---
+
+# 39. Payment Information on Invoice
+
+The PDF may display:
 
 - Payment terms
 - Due date
-- Bank details
+- Bank name
+- Account number
+- Branch
+- IFSC
 - UPI ID
-- Optional UPI QR code
+- Optional UPI QR
+- Payment status
 
-## 16.2 Local Payment Status
+The UPI QR is informational/payment convenience only.
 
-Optional status:
-
-- Unpaid
-- Partially Paid
-- Paid
-
-Payment status is local application information and does not require online verification.
-
-The Tata reference visually shows an `Amount Paid` indicator and a UPI QR code.
+No online payment gateway is required.
 
 ---
 
-# 17. Notes
+# 40. Notes
 
-Allow an invoice-level Notes field.
+Support invoice-level notes.
 
-Possible examples:
+Possible content:
 
 - Job notes
 - Delivery notes
 - Inspection notes
 - Special instructions
-- Customer-specific notes
 
-Notes are optional.
-
----
-
-# 18. Terms & Conditions
-
-The application shall allow configurable default Terms & Conditions.
-
-The Tata reference demonstrates terms such as:
-
-- Conditions on sale/exchange
-- Warranty terms
-- Interest for delayed payment
-- Jurisdiction
-
-The user should be able to edit the default terms from Settings.
-
-Invoice-level customization should also be possible where practical.
+Notes must become part of the finalized invoice snapshot.
 
 ---
 
-# 19. Declaration
+# 41. Terms & Conditions
 
-The invoice should support a declaration section.
+Support configurable default Terms & Conditions.
 
-The sample Tally invoice uses a statement declaring that:
+Defaults may be edited from Settings.
 
-- The invoice reflects the actual price of the goods/services.
-- The particulars are true and correct.
+When a draft is finalized, the actual terms used for that invoice must be preserved.
 
-The declaration should be configurable but enabled by default.
-
----
-
-# 20. Invoice Status / Lifecycle
-
-Use a controlled invoice lifecycle.
-
-## Draft
-
-- Editable
-- Can be deleted if necessary
-- Does not represent a finalized tax invoice
-
-## Finalized
-
-- Invoice number is locked
-- Values are locked
-- PDF can be generated
-- Can be printed/reprinted
-- Should not be freely edited
-
-## Cancelled
-
-A finalized invoice should be cancellable rather than silently deleted.
-
-The original record should remain available for audit/history.
-
-## Paid
-
-Payment status may independently be:
-
-- Unpaid
-- Partial
-- Paid
-
-Payment status must not replace invoice status.
+Changing the default terms later must not modify historical invoices.
 
 ---
 
-# 21. Invoice History
+# 42. Declaration
 
-Provide an invoice list screen.
+Support an editable declaration.
 
-Columns should include:
+A default declaration may be enabled.
+
+The finalized invoice must preserve the declaration actually used.
+
+---
+
+# 43. Invoice History
+
+Provide an invoice history screen.
+
+Show at least:
 
 - Invoice number
 - Date
 - Customer
-- Job/Mould reference
-- Total amount
+- Job/mould reference
+- Grand total
 - Invoice status
 - Payment status
 
@@ -647,273 +1264,366 @@ Support:
 
 - Search by invoice number
 - Search by customer
-- Date range filter
-- Status filter
+- Date range
+- Invoice status filter
+- Payment status filter
 - Sort
 - View
 - Preview
 - Print
 - Export PDF
-- Duplicate as new invoice
+- Duplicate
+- Cancel where permitted
 
-Do not permanently delete finalized invoices from normal user workflows.
-
----
-
-# 22. Customer Reuse
-
-Creating a new invoice should allow the user to select an existing customer.
-
-On selection:
-
-- Customer name fills automatically.
-- GSTIN fills automatically.
-- Billing address fills automatically.
-- Shipping/consignee information fills automatically.
-- State/state code fills automatically.
-
-The user should not need to retype customer details for every invoice.
+The history list should not load every line item unless required.
 
 ---
 
-# 23. Product / Service Reuse
+# 44. Customer Reuse
 
-The application should optionally support reusable service descriptions.
+Selecting an existing customer should populate:
 
-For example:
+- Customer name
+- GSTIN
+- Billing address
+- Shipping/consignee details
+- State information
+- Contact information
+
+The user should not re-enter the same details for every invoice.
+
+A finalized invoice must preserve its own snapshot.
+
+---
+
+# 45. Service / Job Reuse
+
+A lightweight reusable-service feature may be supported later.
+
+Examples:
 
 - Gundrilling
 - 6 Side Machining
 - Other machining operations
 
-This can be a lightweight local master/template feature.
+This is a P2 feature.
 
-Do not build a complete inventory or product-management module.
+It must not evolve into a full inventory/product-management system.
 
 ---
 
-# 24. PDF Invoice Requirements
+# 46. PDF Requirements
 
-The invoice PDF is a primary deliverable.
+The invoice PDF is a core product output.
 
-The target format is:
+The PDF must be:
 
 - A4
 - Professional
+- Readable
 - Printer-friendly
-- Readable in black-and-white printing
+- Suitable for black-and-white printing
 - Suitable for digital sharing
-- Clear tax information
-- Clear grand total
-- Strong information hierarchy
+- Technically clear
 
-## 24.1 Recommended Structure
+The layout should combine:
 
-### Header
-
-- Company logo
-- Company name
-- Company address
-- GSTIN
-- Phone/email
-- `TAX INVOICE`
-- `ORIGINAL FOR RECIPIENT` where applicable
-
-### Invoice Information
-
-- Invoice number
-- Invoice date
-- Due date
-- Place of supply
-- Payment terms
-
-### Customer Section
-
-- Bill To
-- Ship To / Consignee
-- GSTIN
-- Billing/shipping address
-
-### Reference Section
-
-- PO number/date
-- Challan number/date
-- Delivery note
-- Vehicle number
-- Dispatch information
-- Destination
-- Terms of delivery
-
-### Mould / Machining Line Items
-
-Use a structured table where practical:
-
-- #
-- Job/Mould
-- Operation
-- Description/Specification
-- HSN/SAC
-- Qty
-- Unit
-- Rate
-- Discount
-- Amount
-
-Avoid unnecessarily wide columns that make the PDF unreadable.
-
-### Tax Section
-
-- HSN/SAC
-- Taxable value
-- CGST
-- SGST
-- IGST when applicable
-- Total tax
-
-### Totals
-
-- Taxable amount
-- Tax amount(s)
-- Round off
-- Grand total
-- Amount in words
-- Tax amount in words
-
-### Payment Section
-
-- Bank details
-- UPI
-- QR code if configured
-
-### Footer
-
-- Notes
-- Terms & Conditions
-- Declaration
-- Authorized signatory
-- Signature/stamp
-- Computer-generated invoice statement
-- Page number
+```text
+Tally's useful accounting information
++
+Cleaner modern hierarchy
++
+Mould/machining technical readability
+```
 
 ---
 
-# 25. Visual Design Direction
+# 47. PDF Structure
 
-The Tally PDFs are information-dense and accounting-oriented.
+Recommended order:
 
-The Tata reference has a stronger visual hierarchy.
-
-The new design should combine the useful accounting information of Tally with the clarity of the reference image.
-
-Prioritize:
-
-- Clear section titles
-- Consistent alignment
-- Good whitespace
-- Strong table headings
-- Highly visible grand total
-- Easy-to-read customer information
-- Easy-to-read mould/job specifications
-- Professional company branding
-- Clear signature area
-- Clear payment information
-
-Do not over-design the invoice.
-
-The result should look like a professional business invoice, not a marketing brochure.
+```text
+1. Header / Company Branding
+2. Tax Invoice / Original for Recipient
+3. Invoice Metadata
+4. Bill To / Ship To
+5. Reference / Logistics Details
+6. Mould / Machining Line Items
+7. Tax Summary
+8. Totals
+9. Amount in Words
+10. Bank / Payment / UPI
+11. Notes
+12. Terms & Conditions
+13. Declaration
+14. Authorized Signatory
+15. Footer / Page Number
+```
 
 ---
 
-# 26. Local Data Storage
+# 48. PDF Optional Field Behavior
 
-All data must remain local.
+Empty optional information should generally be omitted.
 
-Recommended storage:
+Do not produce clutter such as:
 
-- SQLite database
-- Local application data directory
-- Local PDF export directory
-- Local backup directory
+```text
+PO No.:
+PO Date:
+Vehicle No.:
+```
 
-The database should contain:
+when those values are not supplied.
 
-- Company settings
+The PDF should reorganize available information cleanly without leaving awkward empty areas.
+
+---
+
+# 49. PDF Line-Item Layout
+
+Recommended columns:
+
+```text
+#
+JOB / MOULD
+OPERATION
+DESCRIPTION / SPECIFICATION
+HSN/SAC
+QTY
+UNIT
+RATE
+DISCOUNT
+AMOUNT
+```
+
+The exact column combination may be adjusted for A4 width.
+
+The final layout must prioritize:
+
+1. Technical/job information
+2. Quantity
+3. Rate
+4. Amount
+
+Long technical descriptions must wrap without clipping.
+
+---
+
+# 50. PDF Typography
+
+Use a professional, readable font hierarchy.
+
+Recommended starting sizes:
+
+- Body: approximately 8–9 pt
+- Table headings: approximately 8–9 pt bold
+- Larger headings: according to available space
+
+The final implementation must use fonts supporting required characters such as:
+
+```text
+₹
+×
+```
+
+and normal customer/company text.
+
+---
+
+# 51. PDF Text Safety
+
+User-controlled text may contain:
+
+```text
+&
+<
+>
+```
+
+The PDF renderer must safely escape/encode such content before inserting it into markup.
+
+Long:
+
+- Company names
+- Customer names
+- Addresses
+- Job numbers
+- Technical descriptions
+- Terms
+
+must not cause clipping or rendering failures.
+
+---
+
+# 52. PDF Pagination
+
+For invoices spanning multiple pages:
+
+- Repeat the line-item table heading.
+- Preserve row readability.
+- Avoid splitting a row where practical.
+- Continue long technical descriptions safely.
+- Keep totals together where possible.
+- Keep signature/declaration on the final page.
+- Show page numbering.
+
+There must be a fallback for oversized content that cannot fit naturally on one page.
+
+---
+
+# 53. PDF Preview / Export / Print Consistency
+
+Preview, export and print must use the same generated PDF.
+
+The flow is:
+
+```text
+Finalized Invoice
+       ↓
+PDF Generation
+       ↓
+One PDF
+   ┌───┼────┐
+   ↓   ↓    ↓
+Preview Export Print
+```
+
+There must not be separate calculation or layout implementations for preview and print.
+
+---
+
+# 54. PDF Historical Rendering
+
+A finalized invoice must remain reproducible from its stored invoice data and versioned presentation assets.
+
+The product must not rely on today's customer/company settings to recreate an old invoice.
+
+A future template change must not modify stored financial/party data.
+
+---
+
+# 55. Local Storage
+
+All business data is local.
+
+Store locally:
+
+- Company configuration
 - Customers
 - Invoices
 - Invoice line items
-- Invoice numbering information
-- Configurable defaults
+- Invoice sequences
+- Application settings
+- Versioned assets
+- PDF exports
+- Backups
+- Logs
 
 No server is required.
 
 ---
 
-# 27. Backup / Restore
+# 56. Backup
 
-Because all billing data is local, backup is a high-priority feature.
+Backup is a high-priority product feature.
 
 Support:
 
 - Manual backup
 - Manual restore
-- Automatic local backup
+- Optional automatic backup
 
-Backups should preserve the SQLite database.
+Backups should contain the information needed to recover the billing application, including:
 
-A restore operation must not silently overwrite existing data without confirmation.
+- Database
+- Schema/application version
+- Required invoice assets
+- Backup manifest
 
-Recommended backup characteristics:
-
-- Timestamped files
-- Multiple retained versions
-- Clear backup location
-- Restore confirmation
-- Validation of backup before replacement
+A backup must be validated before being considered usable.
 
 ---
 
-# 28. PDF File Management
+# 57. Restore
 
-The user shall be able to:
+Restore must be safe.
 
-- Preview PDF
-- Save/export PDF
-- Choose output location
-- Print PDF
-- Reprint existing invoice
-- Generate the same finalized invoice again without changing its values
+The process should be:
 
-Suggested default export naming:
+```text
+Select Backup
+     ↓
+Validate Backup
+     ↓
+Validate Schema
+     ↓
+Validate Database Integrity
+     ↓
+Validate Required Assets
+     ↓
+Create Safety Backup of Current Data
+     ↓
+Close/coordinate database access
+     ↓
+Restore
+     ↓
+Reload Application
+```
 
-`INV_SE_26-27_043.pdf`
-
-or another deterministic filename based on the invoice number.
+A failed restore must not leave the user without a recoverable database.
 
 ---
 
-# 29. Desktop Screens
+# 58. Restore and Invoice Number Safety
 
-The minimum application should contain:
+Restoring an older backup can restore an older invoice sequence.
 
-## Screen 1: Dashboard
+The application must not silently reuse invoice numbers that may have been issued after that backup.
 
-Show:
+When necessary, restore must enter a reconciliation state requiring confirmation of the current sequence high-water mark before issuing a new invoice.
+
+Important limitation:
+
+> Number reconciliation can prevent reuse, but it cannot recover invoice records that do not exist in the restored backup.
+
+---
+
+# 59. Backup Retention
+
+The backup system should support multiple retained backups.
+
+Retention policy should:
+
+- Keep more than one recovery point.
+- Never delete the last known valid backup after a failed backup.
+- Allow the user to understand which backup is being restored.
+
+The exact retention period is configurable.
+
+---
+
+# 60. Application Screens
+
+Version 1 should provide:
+
+## Dashboard
 
 - New Invoice
 - Recent invoices
-- Quick invoice search
-- Basic totals/counts if useful
+- Quick search
+- Basic counts
 
-## Screen 2: Customers
+## Customers
 
-- Customer list
+- List
 - Search
 - Add
 - Edit
 - View
-- Duplicate
+- Archive/inactivate
 
-## Screen 3: Create/Edit Invoice
+## Create / Edit Invoice
 
 Sections:
 
@@ -934,391 +1644,639 @@ Actions:
 - Preview
 - Print
 - Export PDF
-- Cancel
+- Close
 
-## Screen 4: Invoice History
+## Invoice History
 
 - Search
 - Filters
 - View
+- Preview
 - Print
 - Export
 - Duplicate
-- Cancel finalized invoice where authorized
+- Cancel where permitted
 
-## Screen 5: Settings
+## Settings
 
 - Company
 - Bank
+- UPI
 - Logo
 - Signature/stamp
 - Invoice numbering
 - Default tax settings
+- Default payment terms
 - Default notes
-- Default terms & conditions
-- Backup / restore
+- Default terms
+- Declaration
+- Backup/restore
 - Export location
-
-A separate PDF Preview window/dialog may be provided.
 
 ---
 
-# 30. Validation Requirements
+# 61. Invoice UI State
+
+The user interface must clearly distinguish:
+
+### Draft
+
+Editable.
+
+### Finalized
+
+Read-only billing information.
+
+### Cancelled
+
+Read-only historical record with cancellation status.
+
+### Payment Status
+
+Independent of the invoice lifecycle.
+
+The UI must not show destructive or editing actions where they are not valid.
+
+---
+
+# 62. Unsaved Changes
+
+When the user attempts to close an edited draft with unsaved changes, offer:
+
+```text
+Save
+Discard
+Cancel
+```
+
+Do not confuse closing a draft with cancelling a finalized invoice.
+
+---
+
+# 63. Validation
 
 ## Company
 
-- Company name cannot be empty.
-- GSTIN should be validated for format.
-- State/state code should be consistent.
-- Bank fields should be validated when entered.
-- Email should be validated when entered.
+Validate:
+
+- Required company name
+- GSTIN format
+- Valid state/state code
+- Email format when supplied
+- Bank information when supplied
+- IFSC format when supplied
 
 ## Customer
 
-- Customer name required.
-- Billing address required.
-- GSTIN optional where appropriate, but format validated when entered.
-- State information validated.
+Validate:
 
-## Invoice
+- Name
+- Billing address
+- State information
+- GSTIN format when supplied
+- Contact information when supplied
 
-- Invoice number unique.
-- Invoice date required.
-- Due date cannot precede invoice date.
-- At least one line item required before finalization.
-- Grand total should be valid.
-- Customer required.
+## Draft
 
-## Line Item
+Draft validation should allow incomplete entry.
 
-- Description required.
-- HSN/SAC required for taxable service lines.
-- Quantity must be greater than zero.
-- Rate must not be negative.
-- Discount must be between 0 and 100.
-- Applicable tax rates must be valid.
+## Finalization
 
-Validation errors should be shown close to the relevant field.
+Finalization requires:
+
+- Valid customer
+- Valid invoice date
+- Valid place of supply/tax treatment
+- At least one valid billable line
+- Valid quantity
+- Valid rate
+- Valid discount
+- Valid HSN/SAC where required
+- Valid tax configuration
 
 ---
 
-# 31. Error Handling
+# 64. Error Handling
 
-The application should handle clearly:
+The application must provide clear messages for:
 
-- Database unavailable/corrupted
-- Failed save
+- Invalid fields
 - Duplicate invoice number
+- Database failure
 - PDF generation failure
 - Printer failure
-- Invalid file path
-- Permission error
+- Export failure
+- Backup failure
+- Restore failure
+- Missing asset
 - Disk full
-- Failed backup
-- Invalid restore file
+- Permission errors
 
-Errors should be understandable to a business user.
+Do not show raw stack traces to normal users.
 
-Do not expose raw stack traces in normal UI.
-
-Detailed technical information may be written to a local log.
+Technical details may be written to the local log.
 
 ---
 
-# 32. Logging
+# 65. Offline Operation
 
-The application may maintain a local log file for troubleshooting.
+The following must work without internet:
 
-The log should record:
+- Company setup
+- Customer management
+- Draft creation
+- Invoice finalization
+- GST calculation
+- PDF generation
+- Preview
+- Export
+- Printing
+- Invoice search
+- Backup
+- Restore
 
-- Application errors
-- Database errors
-- PDF errors
-- Backup/restore failures
-
-Do not log:
-
-- Passwords
-- Sensitive credentials
-- Unnecessary personal data
-
-Logging must remain local.
+No runtime API call may be required for the core billing workflow.
 
 ---
 
-# 33. Keyboard / Usability Requirements
+# 66. Data Integrity
 
-Support normal desktop keyboard navigation.
+The application must protect against:
+
+- Partial finalization
+- Duplicate invoice numbers
+- Accidental deletion of finalized records
+- Silent changes to historical invoices
+- Failed database writes
+- Invalid restore
+- Asset loss
+- Corrupt backups
+
+Invoice finalization must be atomic.
+
+---
+
+# 67. Transactional Finalization
+
+Finalization must behave as one logical transaction.
+
+Conceptually:
+
+```text
+BEGIN
+  Validate
+  Determine tax
+  Calculate
+  Reserve sequence
+  Create snapshots
+  Save invoice
+  Save line items
+COMMIT
+```
+
+On failure:
+
+```text
+ROLLBACK
+```
+
+Repositories must participate in the same transaction and must not independently commit pieces of the finalization.
+
+---
+
+# 68. Repeated Finalization
+
+The application must safely handle accidental repeated finalization.
+
+Example:
+
+```text
+User clicks Finalize
+       ↓
+Successful
+       ↓
+User clicks Finalize again
+```
+
+The second attempt must not:
+
+- issue another invoice;
+- reserve another sequence;
+- duplicate line items.
+
+It should return the already-finalized result or a clear "already finalized" response.
+
+---
+
+# 69. Second Application Instance
+
+The application is designed for single-user/single-computer operation.
+
+If the user accidentally launches a second instance, the application must behave safely.
+
+At minimum:
+
+- Prevent conflicting database writes.
+- Prevent duplicate sequence issuance.
+- Provide a clear message when another instance is using the database, if required by the implementation.
+
+Do not claim multi-user support.
+
+---
+
+# 70. Search and Sorting
+
+Search should support:
+
+- Invoice number
+- Customer name
+
+Filters should support:
+
+- Date range
+- Invoice status
+- Payment status
+
+Sortable columns should be explicitly controlled rather than allowing arbitrary user input to become SQL.
+
+---
+
+# 71. Keyboard Usability
 
 Useful shortcuts:
 
-- `Ctrl+N` → New Invoice
-- `Ctrl+S` → Save
-- `Ctrl+P` → Print
-- `Ctrl+F` → Search
-- `Escape` → Cancel/close dialog
-- `Tab` / `Shift+Tab` → Move between controls
+```text
+Ctrl+N  New Invoice
+Ctrl+S  Save
+Ctrl+P  Print
+Ctrl+F  Search
+Escape  Close/Cancel
+Tab     Next field
+Shift+Tab Previous field
+```
 
-Line-item entry should minimize mouse usage where practical.
+Exact shortcuts may be adjusted for platform conventions.
 
 ---
 
-# 34. Performance Expectations
+# 72. Performance Expectations
 
-The application is intended for a small-business local workload.
+The application is intended for local small-business usage.
 
 Target:
 
-- Fast application startup
-- Invoice form should open immediately
-- Customer search should feel instant
-- Invoice save should complete quickly
-- PDF generation should normally complete within a few seconds
-- Invoice history should remain responsive with thousands of invoices
+- Fast startup
+- Responsive invoice entry
+- Near-instant customer search
+- Responsive invoice history
+- PDF generation within a few seconds for normal invoices
 
-Do not introduce complex infrastructure merely to achieve these targets.
-
----
-
-# 35. Security / Offline Requirements
-
-The application must:
-
-- Make no cloud dependency
-- Make no required network calls
-- Store billing data locally
-- Use parameterized database queries
-- Protect against accidental data loss
-- Maintain invoice history after finalization
-- Provide local backup/restore
-
-Internet access must not be required to create or print an invoice.
+Do not introduce distributed infrastructure to meet these targets.
 
 ---
 
-# 36. Accounting / Audit Principles
+# 73. Primary Platform
 
-The application is a billing tool, not a complete accounting package.
+Version 1 should prioritize:
 
-However:
+```text
+Windows
+```
 
-- Finalized invoices must have stable invoice numbers.
-- Finalized invoice values should be preserved.
-- Cancellation should preserve the original record.
-- Reprints must not create a new invoice.
-- Duplicating an invoice must create a new draft/new invoice number rather than modifying the original.
-- Tax totals shown on the PDF must be reproducible from stored invoice data.
+Windows acceptance must cover:
 
----
-
-# 37. Sample Invoice Acceptance Tests
-
-## Test Case A — DI-TECH MOULDS / Invoice 043
-
-The system must be capable of representing:
-
-- Customer: DI-TECH MOULDS
-- Invoice: `SE/26-27/043`
-- Date: `11-May-26`
-- PO/challan references as shown
-- Service: Gundrilling
-- Job/reference: `DT-663`
-- Operation: Punch Gun Drilling
-- Specification: `DRILL DIA 9X307MM DEEP`
-- Quantity: `16 NOS.`
-- HSN/SAC: `998898`
-- Taxable amount: ₹12,280.00
-- CGST: ₹1,105.20
-- SGST: ₹1,105.20
-- Round off: -₹0.40
-- Total: ₹14,490.00
-
-## Test Case B — BMSS STEEL / Invoice 089
-
-The system must be capable of representing:
-
-- Customer: BMSS STEEL INDUSTRIES PRIVATE LIMITED
-- Invoice: `SE/26-27/089`
-- Date: `22-Jun-26`
-- Payment terms: `30 Days`
-- PO reference: `BMSS/L/070/26-27`
-- Challan: `CHALLAN NO. 353`
-- Vehicle: `MH48CQ5748`
-- Two machining line items
-- `6 SIDE MACHINING 510X430X130`
-- `6 SIDE MACHINING 510X430X150`
-- HSN/SAC: `998898`
-- Taxable amount: ₹8,332.00
-- CGST: ₹749.88
-- SGST: ₹749.88
-- Round off: ₹0.24
-- Total: ₹9,832.00
-
-These examples are acceptance references for functionality and calculations.
-
----
-
-# 38. Priority Classification
-
-## P0 — Must Have
-
-### Invoice
-- Company details
-- Customer details
-- Invoice number
-- Invoice date
-- Customer selection
-- At least one line item
-- Description
-- HSN/SAC
-- Quantity
-- Unit
-- Rate
-- Taxable amount
-- GST calculation
-- CGST/SGST
-- IGST
-- Round off
-- Grand total
-- Amount in words
-- Invoice PDF
-- A4 layout
-- Local save
-- Invoice history
-- Print
-- PDF export
-
-### Mould/Machining
-- Job/mould reference
-- Operation/process
-- Specification/technical description
-- Multiple line items
-
-### Data
-- Local SQLite or equivalent local relational storage
+- Installation
+- Startup
+- Database creation
+- Customer management
+- Invoice creation
+- Finalization
+- PDF generation
+- Preview
+- Printing
+- Export
 - Backup
 - Restore
+- Offline operation
+
+Cross-platform support may be added later if actually required.
+
+---
+
+# 74. Source Invoice Regression Tests
+
+The following values must be represented in automated regression tests.
+
+## Invoice 043
+
+```text
+Invoice Number : SE/26-27/043
+Customer       : DI-TECH MOULDS
+
+Taxable        : ₹12,280.00
+CGST           : ₹1,105.20
+SGST           : ₹1,105.20
+Before Round   : ₹14,490.40
+Round-Off      : -₹0.40
+Grand Total    : ₹14,490.00
+```
+
+## Invoice 089
+
+```text
+Invoice Number : SE/26-27/089
+Customer       : BMSS STEEL INDUSTRIES PRIVATE LIMITED
+
+Taxable        : ₹8,332.00
+CGST           : ₹749.88
+SGST           : ₹749.88
+Before Round   : ₹9,831.76
+Round-Off      : ₹0.24
+Grand Total    : ₹9,832.00
+```
+
+These aggregate figures are authoritative regression values for the supplied requirements.
+
+The application must not invent missing source quantities/rates and claim complete original-invoice reproduction.
+
+---
+
+# 75. Acceptance Scenarios
+
+The following are mandatory end-to-end behaviors.
+
+## Scenario 1 — Incomplete Draft
+
+```text
+Create draft
+→ enter partial information
+→ save
+→ close
+→ reopen
+```
+
+Expected:
+
+- Entered data remains.
+- Draft remains editable.
+- No official invoice number is consumed.
+
+## Scenario 2 — Invalid Finalization
+
+```text
+Draft
+→ Finalize
+```
+
+Expected:
+
+- Field-specific errors.
+- No finalized invoice.
+- No partial sequence/database changes.
+
+## Scenario 3 — Repeat Finalization
+
+Expected:
+
+- One invoice.
+- One invoice number.
+- No duplicate line items.
+
+## Scenario 4 — Different Drafts
+
+Finalizing two different drafts must produce different invoice numbers.
+
+## Scenario 5 — Tax Rate Difference
+
+Same HSN/SAC with different tax rates must produce separate summary rows.
+
+## Scenario 6 — Bill-To vs Ship-To
+
+Different addresses must both survive in the finalized invoice.
+
+## Scenario 7 — Master Data Changed
+
+After finalization, changing:
+
+- customer address;
+- bank details;
+- company logo;
+- UPI;
+- terms;
+
+must not silently change the historical invoice snapshot.
+
+## Scenario 8 — Duplicate Paid Invoice
+
+Expected:
+
+```text
+New draft
+New identity
+No final number
+Payment status = Unpaid
+```
+
+## Scenario 9 — Cancellation
+
+Expected:
+
+- Original invoice retained.
+- Number retained.
+- Cancellation reason/time recorded.
+- Cancelled status displayed.
+
+## Scenario 10 — Old Backup Restore
+
+Expected:
+
+- Older invoice numbers are not silently reused.
+- User is asked to reconcile the sequence when necessary.
+
+## Scenario 11 — Export Failure
+
+Expected:
+
+- Clear error.
+- Original invoice remains unchanged.
+
+## Scenario 12 — Long Content
+
+Long customer names, addresses, mould IDs, technical descriptions and terms must produce a readable PDF without clipping or markup failures.
+
+## Scenario 13 — Offline
+
+Disconnect the internet and verify the core workflow still works.
+
+---
+
+# 76. Definition of Ready
+
+A feature/task is ready for implementation when:
+
+- The requirement is documented.
+- Its behavior is unambiguous.
+- Required dependencies are known.
+- Acceptance criteria exist.
+- Test strategy is understood.
+- No unresolved blocking decision exists.
+
+---
+
+# 77. Definition of Done
+
+A requirement is complete when:
+
+- The behavior is implemented.
+- Automated tests cover relevant business rules.
+- Acceptance criteria pass.
+- No unrelated behavior was introduced.
+- Documentation is updated when behavior changed.
+- The implemented task is explicitly marked complete.
+
+A checked task without evidence is not considered complete.
+
+---
+
+# 78. Priority
+
+## P0 — Core Product
+
+- Local/offline operation
+- Company setup
+- Customer setup
+- Draft invoices
+- Invoice finalization
+- Invoice numbering
+- Mould/job information
+- Line items
+- HSN/SAC
+- Quantity/unit/rate
+- GST calculation
+- Tax summary
+- Round-off
+- Grand total
+- Amount in words
+- Invoice history
+- PDF generation
+- PDF export
+- Printing
+- Finalized invoice immutability
+- Historical snapshots
+- Basic backup/restore
 
 ## P1 — Important
 
 - Due date
 - Payment terms
-- PO/challan information
-- Vehicle number
-- Ship-to/consignee
-- Godown address
+- PO/challan/logistics
+- Bill-To/Ship-To
 - Bank details
 - UPI/QR
 - Payment status
+- Cancellation reason
+- Duplicate invoice
 - Notes
 - Terms & Conditions
 - Declaration
 - Logo
 - Signature/stamp
 - Search/filter
-- Duplicate invoice
-- Cancel finalized invoice
-- Invoice preview
+- Multi-page PDF handling
+- Restore reconciliation
 
 ## P2 — Optional
 
 - Service templates
-- CSV customer import
+- CSV import
 - Excel export
 - Multiple companies
-- Multiple invoice templates
-- Multi-language support
+- Multiple visual templates
+- Multi-language UI
 - Dark mode
-- Advanced payment tracking
+- Full payment ledger
 - Recurring invoices
 - Email integration
 
 ---
 
-# 39. Recommended Product Boundaries
+# 79. Product Boundaries
 
-Version 1 should answer one question well:
+Version 1 should remain focused on:
 
-> "Can a business operator quickly create a correct professional mould/machining tax invoice and print or save it as PDF?"
+```text
+Create
+Calculate
+Finalize
+Store
+Generate
+Print
+Search
+Recover
+```
 
-Anything that does not materially improve that workflow should be deferred.
+It should not become:
 
-Do not turn this application into an ERP.
-
----
-
-# 40. Definition of Done
-
-The product is ready for Version 1 when:
-
-- Company details can be configured.
-- Customer details can be saved and reused.
-- A mould/machining invoice can be created.
-- Multiple line items can be entered.
-- GST is calculated correctly.
-- The sample invoice calculation cases pass.
-- Invoice numbers are unique and sequential.
-- Draft/finalized/cancelled behavior works.
-- Finalized invoices cannot be casually overwritten.
-- PDF is generated in A4 format.
-- PDF contains all required customer, mould, tax and total information.
-- Amounts in words are correct.
-- Bank/payment/signature sections render correctly.
-- Invoice can be printed locally.
-- Invoice can be exported to PDF.
-- Existing invoices can be searched and reprinted.
-- Data survives application restart.
-- Backup and restore work.
-- Application works without internet access.
-- No cloud/server dependency exists.
+```text
+ERP
+Accounting Suite
+CRM
+Manufacturing System
+Inventory System
+Cloud SaaS
+```
 
 ---
 
-# 41. Implementation Constraint
+# 80. Important Open Decisions
 
-This document intentionally describes **WHAT the product must do**, not detailed implementation.
+Before implementing the affected areas, explicitly decide:
 
-Technology choices, class design, database normalization, UI framework decisions, packaging, testing architecture and PDF implementation should be defined separately in:
+1. Exact invoice-number allocation point.
+2. Existing Tally sequence initialization procedure.
+3. Financial-year and backdated invoice-number behavior.
+4. Exact place-of-supply policy.
+5. GST special-case scope.
+6. Future-date invoice policy.
+7. Payment-status workflow beyond simple status.
+8. Historical PDF re-rendering policy.
+9. Template version strategy.
+10. Restore sequence-reconciliation workflow.
+11. Cancellation behavior for invoices that may already have been externally reported.
+12. Exact customer/company field requirements for finalization.
 
-- `ARCHITECTURE.md`
-- `INVOICE_RULES.md`
-- `PDF_LAYOUT.md`
-- Kiro specification/task files
-
-The product requirements must remain the source of truth for functionality.
+These decisions must be recorded rather than guessed by an AI coding agent.
 
 ---
 
-# 42. Source-Based Notes
+# 81. Final Product Definition
 
-The Tally invoices demonstrate:
+The application is successful when a business operator can:
 
-- Supplier and customer/consignee information
-- GSTIN/state details
-- Invoice and reference fields
-- Mould/machining service descriptions
-- HSN/SAC `998898`
-- Quantities and units such as MM/NOS
-- CGST 9% + SGST 9%
-- Round-off
-- Amount in words
-- Tax amount in words
-- Declaration
-- Bank details
-- Authorized signatory
+```text
+Open the application
+        ↓
+Select a customer
+        ↓
+Enter mould / machining work
+        ↓
+Enter quantity and rate
+        ↓
+See correct GST and total
+        ↓
+Finalize the invoice
+        ↓
+Get a professional A4 PDF
+        ↓
+Print or save it
+        ↓
+Find the invoice later
+        ↓
+Keep the invoice safe through backup
+```
 
-The Tata Motors reference adds useful presentation patterns such as:
+The defining product quality is not the number of screens or features.
 
-- Stronger company branding
-- Tax Invoice / Original for Recipient labeling
-- Place of supply
-- Due date
-- Prominent shipping address
-- UPI QR code
-- Payment status
-- Notes
-- Terms & Conditions
-- Large, visually prominent total
-- More polished visual hierarchy
+It is:
 
-These source observations should guide the final PDF design without blindly copying the Tata branding or unrelated automotive content.
+> **A simple local billing tool that produces correct, professional, reproducible mould/machining invoices and protects the business's invoice history.**

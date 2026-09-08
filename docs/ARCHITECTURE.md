@@ -1,134 +1,165 @@
-# ARCHITECTURE
-## Local Desktop Billing Application for Mould / Mould-Machining Business
-
-**Document Version:** 1.0  
-**Status:** Architecture Baseline  
-**Related Document:** `PRODUCT_REQUIREMENTS.md`
-
+ARCHITECTURE
+Local Desktop Billing Application for Mould / Mould-Machining Business
+Document Version: 2.0  
+Status: Revised Architecture Baseline  
+Related Documents:
+`PRODUCT_REQUIREMENTS.md`
+`INVOICE_RULES.md`
+`PDF_LAYOUT.md`
+`.kiro/specs/invoice-generator/requirements.md`
+`.kiro/specs/invoice-generator/design.md`
+`.kiro/specs/invoice-generator/tasks.md`
 ---
-
-# 1. Architecture Goals
-
-The application is a **local desktop billing application** whose primary responsibility is:
-
+1. Purpose
+This document defines the technical architecture for a single-computer, offline desktop billing application used by a mould / mould-machining business.
+The application is responsible for:
 ```text
-Create Invoice
-      ↓
+Enter Invoice
+     ↓
 Validate
-      ↓
-Calculate GST / Totals
-      ↓
-Persist Locally
-      ↓
+     ↓
+Calculate
+     ↓
+Finalize
+     ↓
+Store Locally
+     ↓
 Generate PDF
-      ↓
+     ↓
 Preview / Print / Export
 ```
-
-The architecture must optimize for:
-
-- Simplicity
-- Correct financial calculations
-- Reliable local persistence
-- Maintainable desktop UI
-- Deterministic PDF generation
-- Offline operation
-- Easy backup and restore
-- Clear separation of UI, business logic and infrastructure
-- Testability
-
-The architecture must deliberately avoid unnecessary distributed-system concepts.
-
+The architecture is designed around five priorities:
+Correct financial calculations.
+Safe invoice history.
+Reliable local persistence and recovery.
+Professional and deterministic PDF generation.
+Simple desktop operation without cloud infrastructure.
+The architecture intentionally avoids distributed-system complexity.
 ---
-
-# 2. Important Technology Boundary
-
-Kiro is the **development environment / AI engineering tool used to build the application**. It is not the runtime framework of the billing application.
-
-Kiro currently provides an IDE for structured agentic development, including Specs, Steering and Hooks. The actual billing application should therefore use a normal Python desktop UI stack rather than treating Kiro as an application UI/runtime framework. citeturn530514search0turn530514search1
-
-Recommended runtime architecture:
-
+2. Scope Boundary
+2.1 In Scope
+Company configuration
+Customer management
+Draft invoices
+Finalized invoices
+Invoice cancellation
+Invoice duplication
+Invoice numbering
+Mould/job/machining details
+GST calculations
+Tax summaries
+PDF generation
+PDF preview
+Local printing
+PDF export
+Payment-status tracking
+Local backup and restore
+Invoice search/history
+2.2 Out of Scope
+Do not introduce:
+Cloud services
+Backend server
+REST API
+Remote database
+Cloud synchronization
+SaaS infrastructure
+Microservices
+Redis
+Kafka
+Message queues
+Online payment gateway
+Online GSTIN verification
+CRM
+Payroll
+Full accounting system
+Full inventory system
+Manufacturing planning system
+Customer portal
+Mobile application
+---
+3. Kiro Boundary
+Kiro is the development environment and AI-assisted engineering tool used to build the project.
+Kiro is not the runtime framework of the billing application.
+The actual application runtime is:
 ```text
-Kiro IDE
-   │
-   │ used to design/build/review
-   ▼
-Python Desktop Application
-   │
-   ├── PySide6 UI
-   ├── Application Services
-   ├── Domain Models / Rules
-   ├── SQLite Persistence
-   ├── ReportLab PDF Generation
-   └── Local OS Printing
+Python
+  +
+PySide6
+  +
+SQLite
+  +
+ReportLab
 ```
-
-Kiro Specs should be used to manage the implementation as requirements → design → tasks, while Steering files should contain project-wide engineering rules. citeturn530514search0turn530514search3turn530514search4
-
----
-
-# 3. High-Level System Architecture
-
+Kiro is used for:
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│                    DESKTOP APPLICATION                       │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │                     Presentation                        │  │
-│  │                    PySide6 UI                           │  │
-│  │                                                        │  │
-│  │ Dashboard | Customers | Invoice | History | Settings  │  │
-│  └───────────────────────┬────────────────────────────────┘  │
-│                          │                                   │
-│                          ▼                                   │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │                  Application Layer                     │  │
-│  │                                                        │  │
-│  │ InvoiceService     CustomerService     CompanyService │  │
-│  │ CalculationService PDFService        BackupService    │  │
-│  │ PrintService       SettingsService                  │  │
-│  └───────────────┬───────────────────────┬──────────────┘  │
-│                  │                       │                  │
-│                  ▼                       ▼                  │
-│  ┌────────────────────────┐   ┌──────────────────────────┐ │
-│  │ Domain / Business Rules│   │ Infrastructure            │ │
-│  │                         │   │                          │ │
-│  │ Invoice                │   │ SQLite Repository         │ │
-│  │ InvoiceLine            │   │ File Storage              │ │
-│  │ GST Rules              │   │ PDF Renderer              │ │
-│  │ Totals                 │   │ OS Printer                │ │
-│  │ Invoice Lifecycle      │   │ Backup / Restore          │ │
-│  └────────────────────────┘   └──────────────────────────┘ │
-│                                           │                │
-└───────────────────────────────────────────┼────────────────┘
-                                            ▼
-                              ┌──────────────────────────┐
-                              │        Local Disk        │
-                              │                          │
-                              │ SQLite DB                │
-                              │ PDFs                     │
-                              │ Logo / Signature         │
-                              │ Backups                  │
-                              │ Logs                     │
-                              └──────────────────────────┘
+Requirements
+    ↓
+Specification
+    ↓
+Design
+    ↓
+Tasks
+    ↓
+Implementation
+    ↓
+Review
 ```
-
-There is:
-
-- No backend server
-- No REST API
-- No cloud database
-- No synchronization service
-- No message broker
-- No internet dependency
-
+The `.kiro/` directory contains development guidance and specifications. It must not become a runtime dependency.
 ---
-
-# 4. Architectural Style
-
-Use a lightweight layered architecture.
-
+4. High-Level Architecture
+```text
+┌────────────────────────────────────────────────────────────┐
+│                    DESKTOP APPLICATION                     │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                  Presentation Layer                  │  │
+│  │                    PySide6 UI                        │  │
+│  │                                                      │  │
+│  │ Dashboard | Customers | Invoice | History | Settings│  │
+│  └──────────────────────────┬───────────────────────────┘  │
+│                             │                              │
+│                             ▼                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                  Application Layer                   │  │
+│  │                                                      │  │
+│  │ InvoiceService                                      │  │
+│  │ CustomerService                                     │  │
+│  │ CompanyService                                      │  │
+│  │ CalculationService                                  │  │
+│  │ PDFService                                           │  │
+│  │ BackupService                                        │  │
+│  │ PrintService                                         │  │
+│  │ SettingsService                                     │  │
+│  └──────────────┬──────────────────────┬────────────────┘  │
+│                 │                      │                   │
+│                 ▼                      ▼                   │
+│  ┌────────────────────────┐   ┌─────────────────────────┐ │
+│  │ Domain Layer           │   │ Infrastructure Layer   │ │
+│  │                        │   │                         │ │
+│  │ Invoice rules          │   │ SQLite repositories     │ │
+│  │ Draft/final rules      │   │ File storage            │ │
+│  │ GST rules              │   │ PDF renderer             │ │
+│  │ Money rules            │   │ Printer adapter          │ │
+│  │ Numbering rules        │   │ Backup/restore           │ │
+│  │ Status rules           │   │ Asset management         │ │
+│  └────────────────────────┘   └─────────────────────────┘ │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                  ┌────────────────────────┐
+                  │       LOCAL DISK       │
+                  │                        │
+                  │ SQLite                 │
+                  │ PDF exports            │
+                  │ Backups                │
+                  │ Versioned assets       │
+                  │ Logs                   │
+                  └────────────────────────┘
+```
+---
+5. Architectural Style
+Use a lightweight layered architecture with explicit domain rules and repository interfaces.
 ```text
 Presentation
      ↓
@@ -136,120 +167,618 @@ Application Services
      ↓
 Domain / Business Rules
      ↓
-Repositories / Infrastructure
+Repository Interfaces
      ↓
-SQLite + File System + OS
+Infrastructure Implementations
+     ↓
+SQLite / Files / OS
 ```
+The dependency direction must remain inward:
+```text
+UI
+ ↓
+Application
+ ↓
+Domain
 
-The key rule is:
-
-> UI code must not contain financial business rules or direct SQL.
-
-For example, the invoice form should not calculate GST itself.
-
-Correct:
-
+Infrastructure → implements domain/application interfaces
+```
+The domain must not depend on PySide6, SQLite, ReportLab, or OS-specific APIs.
+---
+6. Main Architectural Rule
+The UI is an adapter, not the business layer.
+Correct
 ```text
 InvoiceForm
-   ↓
+    ↓
 InvoiceService
-   ↓
+    ↓
 CalculationService
-   ↓
-Invoice totals
+    ↓
+Domain rules
 ```
-
-Incorrect:
-
+Incorrect
 ```text
 InvoiceForm
-   ├── SQL
-   ├── GST calculation
-   ├── rounding
-   ├── PDF generation
-   └── print logic
+ ├── SQL
+ ├── GST formulas
+ ├── rounding
+ ├── invoice numbering
+ ├── PDF drawing
+ └── printer calls
 ```
-
+The following are explicitly forbidden in UI classes:
+Raw SQL
+Financial calculations
+Invoice-number generation
+PDF layout logic
+Database transaction management
+OS-specific printer logic
 ---
-
-# 5. Recommended Technology Stack
-
-| Layer | Technology | Responsibility |
-|---|---|---|
-| Development | Kiro | AI-assisted development, Specs, Steering, Hooks |
-| Language | Python | Application runtime |
-| Desktop UI | PySide6 | Native desktop user interface |
-| Validation | Pydantic | Input/model validation |
-| Database | SQLite | Local relational persistence |
-| PDF | ReportLab | Invoice PDF generation |
-| QR | qrcode | Optional UPI QR |
-| Images | Pillow | Logo/signature image handling |
-| Amount words | num2words | INR amount-to-words |
-| Testing | pytest | Unit/integration tests |
-| Packaging | PyInstaller or equivalent | Desktop distribution |
-
-Do not add libraries unless they solve a confirmed requirement.
-
+7. Runtime Technology
+Concern	Technology
+Language	Python
+Desktop UI	PySide6
+Local database	SQLite
+Validation	Pydantic where useful
+PDF	ReportLab
+QR	qrcode
+Image handling	Pillow
+Amount-to-words	num2words
+Money arithmetic	Decimal
+Tests	pytest
+Lint	Ruff
+Type checking	mypy
+Packaging	PyInstaller or equivalent
+Dependencies must be added only when they support a real requirement.
+Do not add infrastructure for hypothetical future needs.
 ---
-
-# 6. Layer Responsibilities
-
-## 6.1 Presentation Layer
-
+8. Domain Layer
 Location:
-
 ```text
-src/ui/
+src/domain/
 ```
-
-Responsibilities:
-
-- Render screens
-- Collect user input
-- Display validation errors
-- Display calculated totals
-- Trigger application services
-- Show dialogs
-- Display PDF preview
-- Never perform raw database operations
-- Never implement GST formulas
-
-Suggested structure:
-
+The domain layer contains concepts and rules that are independent of the desktop framework and database.
+Recommended structure:
 ```text
-src/ui/
-├── main_window.py
-├── dashboard.py
-├── customers/
-│   ├── customer_list.py
-│   └── customer_form.py
-├── invoices/
-│   ├── invoice_list.py
-│   ├── invoice_form.py
-│   └── invoice_preview.py
-├── settings/
-│   └── settings_window.py
-└── components/
-    ├── address_widget.py
-    ├── line_item_table.py
-    ├── totals_widget.py
-    └── dialogs.py
+src/domain/
+├── models/
+│   ├── company.py
+│   ├── customer.py
+│   ├── invoice.py
+│   ├── invoice_line.py
+│   ├── invoice_totals.py
+│   └── tax_summary.py
+│
+├── enums/
+│   ├── invoice_status.py
+│   ├── payment_status.py
+│   └── tax_type.py
+│
+├── rules/
+│   ├── calculations.py
+│   ├── tax_rules.py
+│   ├── numbering_rules.py
+│   ├── validation_rules.py
+│   └── invoice_lifecycle.py
+│
+└── repositories/
+    ├── company_repository.py
+    ├── customer_repository.py
+    ├── invoice_repository.py
+    └── sequence_repository.py
 ```
-
 ---
-
-# 7. Application Layer
-
-Location:
-
+9. Draft and Finalized Models
+Do not use one strict model for every invoice state.
+The product allows incomplete drafts, while finalization requires complete and valid billing data.
+Use separate contracts/states conceptually:
 ```text
-src/application/
+InvoiceDraft
+    ↓
+FinalizeRequest / FinalizationValidation
+    ↓
+FinalizedInvoice
 ```
+9.1 Draft
+A draft may contain:
+Missing customer
+Incomplete line items
+Missing optional references
+Temporary/incomplete numeric input
+A draft must still preserve valid entered information.
+Malformed numeric values must not silently become zero.
+9.2 Finalization
+Finalization validates:
+Company
+Customer
+Invoice date
+Place of supply
+Line items
+HSN/SAC
+Quantity
+Rate
+Discount
+Tax configuration
+Invoice references required by the supported scope
+Only after validation succeeds may the invoice be finalized.
+---
+10. Invoice Lifecycle
+Use explicit states:
+```text
+DRAFT
+  │
+  ▼
+FINALIZED
+  │
+  └──────────► CANCELLED
+```
+Payment state is independent:
+```text
+UNPAID
+PARTIAL
+PAID
+```
+A payment-status change must never modify the financial content of a finalized invoice.
+---
+11. Finalized Invoice Immutability
+After finalization, the following are immutable:
+Invoice number
+Invoice date
+Company snapshot
+Customer snapshot
+Bill-to information
+Ship-to information
+Place of supply
+References
+Line items
+Tax rates
+Calculated taxes
+Tax summary
+Round-off
+Grand total
+Terms
+Notes
+Declaration
+Payment information printed on the invoice
+Template version reference
+Asset version references
+Allowed operations include:
+View
+Reprint
+Export
+Change payment status
+Cancel
+Create a duplicate/new draft
+A finalized invoice must not be silently rewritten.
+---
+12. Historical Snapshot Architecture
+Master data changes must not alter historical invoices.
+The finalized invoice therefore stores an invoice-facing snapshot.
+Example:
+```text
+Customer Master
+    │
+    │ current data
+    ▼
+Invoice Draft
+    │
+    │ snapshot at finalization
+    ▼
+Finalized Invoice
+```
+The snapshot must preserve:
+Company
+Name
+Address
+GSTIN
+State
+Email
+Phone
+Bank details
+UPI details
+Declaration settings
+Customer
+Name
+GSTIN
+Billing address
+Shipping/consignee address
+State
+Contact information
+Invoice
+References
+Payment terms
+Due date
+Place of supply
+Notes
+Terms
+Declaration
+Lines
+Job/mould reference
+Component/part
+Operation
+Description
+Specification
+HSN/SAC
+Quantity
+Unit
+Rate
+Discount
+Tax rates
+Calculated tax
+---
+13. Template Versioning
+Historical financial content and visual template version are separate concepts.
+Every finalized invoice should reference:
+```text
+template_version
+```
+Example:
+```text
+Invoice 043 → Template V1
+Invoice 150 → Template V2
+```
+A template change may alter presentation, but must not alter stored financial or party data.
+Whether an old invoice is re-rendered using its original template or an explicit "current template" action is a product decision that must be documented before implementation.
+---
+14. Asset Versioning
+Do not rely only on mutable paths such as:
+```text
+assets/logo.png
+```
+because replacing that file can change the appearance of an old invoice.
+Use immutable/versioned assets:
+```text
+assets/
+├── logos/
+│   ├── logo-v1.png
+│   └── logo-v2.png
+│
+└── signatures/
+    ├── signature-v1.png
+    └── signature-v2.png
+```
+The finalized invoice stores asset references.
+Backups must include the assets required by finalized invoices.
+---
+15. Money Architecture
+All financial calculations must use:
+```text
+Decimal
+```
+Never use `float` on a monetary path.
+Applies to:
+Rate
+Discount amount
+Taxable value
+CGST
+SGST
+IGST
+Round-off
+Grand total
+Payment amount
+The UI must parse decimal input directly from text into Decimal.
+Do not use:
+```text
+float(user_input)
+```
+before converting to Decimal.
+Reject:
+NaN
+Infinity
+negative values where prohibited
+---
+16. Numeric Storage Policy
+The application must define exact serialization before database implementation.
+Recommended policy:
+Money
+Store as integer paise where practical.
+Example:
+```text
+₹123.45 → 12345
+```
+Quantity
+Store as canonical decimal text or another exact representation because quantity precision may differ by unit.
+Rate / Percentage
+Store using exact decimal serialization.
+Do not depend on SQLite floating-point storage for monetary data.
+Every value must survive:
+```text
+UI
+ ↓
+Domain
+ ↓
+SQLite
+ ↓
+Domain
+ ↓
+PDF
+```
+without changing digits.
+---
+17. Calculation Architecture
+Create one authoritative calculation service.
+```text
+CalculationService
+├── calculate_gross_amount()
+├── calculate_discount()
+├── calculate_taxable_amount()
+├── determine_tax_treatment()
+├── calculate_cgst_sgst()
+├── calculate_igst()
+├── calculate_tax_summary()
+├── calculate_round_off()
+├── calculate_invoice_totals()
+└── calculate_amount_words()
+```
+No duplicate tax formulas elsewhere.
+The UI displays results produced by this service.
+The PDF renders results produced by this service.
+---
+18. Tax Treatment
+Place of supply must be an explicit invoice value.
+The supported normal flow is:
+```text
+Supplier State
+       +
+Place of Supply
+       ↓
+Tax Treatment
+```
+Normal supported cases:
+```text
+Intra-state → CGST + SGST
+Inter-state → IGST
+```
+Tax rates are configurable.
+Do not permanently hardcode 9% + 9% or 18%.
+---
+19. GST Scope
+The application must explicitly define supported special cases.
+Recommended Version 1 scope:
+```text
+SUPPORTED
+├── Normal intra-state taxable supply
+├── Normal inter-state taxable supply
+└── Configurable GST rates
 
-This layer coordinates use cases.
-
-Suggested services:
-
+NOT SUPPORTED BY DEFAULT
+├── Reverse charge
+├── Exempt supply
+├── Nil-rated supply
+├── Export
+├── SEZ
+└── Other special GST treatments
+```
+Unsupported cases must fail with a clear message rather than silently being converted into a generic zero-tax invoice.
+If e-invoicing is legally applicable to the business, the local PDF generator does not itself provide IRP registration, IRN generation, or an IRP-signed QR. That would require a separately approved integration and is outside the offline-only runtime architecture.
+---
+20. Tax Summary Architecture
+Tax summary grouping key:
+```text
+HSN/SAC
++
+Tax Treatment
++
+Applicable Rate Tuple
+```
+Not merely:
+```text
+HSN/SAC
+```
+Example:
+```text
+998898 | INTRA_STATE | CGST 9% + SGST 9%
+998898 | INTRA_STATE | CGST 12% + SGST 12%
+998898 | INTER_STATE | IGST 18%
+```
+The summary should aggregate already-calculated line tax values.
+It must not recalculate tax independently from the aggregated taxable value.
+---
+21. Round-Off Architecture
+The calculation flow is:
+```text
+Raw Total
+    ↓
+Rounded Total
+    ↓
+Round-Off = Rounded Total - Raw Total
+```
+Then:
+```text
+Grand Total = Raw Total + Round-Off
+```
+Round-off may be positive or negative.
+The rounding policy must be explicit and covered by tests.
+---
+22. Invoice Numbering
+Use a dedicated sequence repository.
+Do not use:
+```sql
+SELECT MAX(invoice_number)
+```
+The sequence scope should include:
+```text
+Company
+Financial Year
+Prefix
+Next Sequence
+```
+Example:
+```text
+SE / 26-27 / 043
+```
+Finalization:
+```text
+BEGIN TRANSACTION
+       ↓
+Validate
+       ↓
+Reserve sequence
+       ↓
+Build invoice number
+       ↓
+Persist invoice
+       ↓
+Persist lines
+       ↓
+Persist snapshots
+       ↓
+COMMIT
+```
+---
+23. Financial Year
+Financial year must be derived from invoice date according to the business's configured financial-year convention.
+The architecture must define behavior around:
+```text
+31 March
+1 April
+```
+and for:
+Backdated invoices
+Future-dated invoices where allowed
+Prefix changes
+Sequence rollover
+Existing Tally number initialization
+The sample invoice numbers do not prove what the next number should be. Initial sequence must be configured explicitly.
+---
+24. Transaction Ownership
+Invoice finalization must have exactly one transaction owner.
+Recommended:
+```text
+InvoiceService
+      ↓
+Unit of Work / Transaction Scope
+      ↓
+Repositories
+```
+Repositories must participate in the transaction and must not commit independently.
+One finalization transaction covers:
+Sequence reservation
+Invoice header
+Invoice lines
+Totals
+Snapshot fields
+Finalization state
+If any part fails:
+```text
+ROLLBACK
+```
+No partial invoice may remain.
+---
+25. Repeat-Finalize Protection
+The application must safely handle:
+```text
+User clicks Finalize
+      ↓
+Request succeeds
+      ↓
+User clicks Finalize again
+```
+The second request must not:
+create a second invoice
+reserve a second sequence
+duplicate line items
+It should either:
+return the already-finalized invoice, or
+return a clear "already finalized" result.
+---
+26. Concurrent Access
+The product is single-user/local, but the application should still behave safely if:
+Two application windows are opened.
+Two finalization operations overlap.
+A stale draft is being edited.
+Use SQLite transaction locking and unique constraints appropriately.
+Do not disable SQLite thread-safety checks simply to suppress errors.
+If database work is moved to a worker thread, use worker-owned connections.
+---
+27. Repository Architecture
+Define interfaces:
+```text
+CompanyRepository
+CustomerRepository
+InvoiceRepository
+SequenceRepository
+SettingsRepository
+```
+Application services depend on these interfaces.
+SQLite implements them.
+Example:
+```text
+src/domain/repositories/
+├── company_repository.py
+├── customer_repository.py
+├── invoice_repository.py
+├── sequence_repository.py
+└── settings_repository.py
+```
+Implementation:
+```text
+src/infrastructure/database/
+├── sqlite_connection.py
+├── transaction.py
+├── migrations/
+├── company_repository.py
+├── customer_repository.py
+├── invoice_repository.py
+├── sequence_repository.py
+└── settings_repository.py
+```
+---
+28. SQLite Architecture
+SQLite is the source of truth for local invoice data.
+Recommended core tables:
+```text
+companies
+customers
+invoices
+invoice_items
+invoice_sequences
+app_settings
+assets
+```
+A tax-summary table is optional if summary data can be deterministically generated from stored invoice lines.
+Avoid duplicating derived data without a clear reason.
+---
+29. Database Constraints
+Use database constraints as a second line of defense.
+Examples:
+Unique finalized invoice number
+Valid status values
+Valid payment status values
+Foreign-key integrity
+Required finalized fields
+Positive quantities where appropriate
+Valid sequence uniqueness
+Application validation must still provide friendly user messages.
+---
+30. Migration Architecture
+Use explicit schema versions.
+```text
+schema_version
+```
+Startup:
+```text
+Open DB
+   ↓
+Read schema version
+   ↓
+Apply pending migrations
+   ↓
+Validate schema
+   ↓
+Start application
+```
+Never replace a production database simply because the application version changed.
+Each migration should be:
+Ordered
+Idempotent where appropriate
+Tested
+Reviewable
+Migration failure must stop startup safely rather than leaving the application operating against a partially migrated schema.
+---
+31. Application Services
+Recommended services:
 ```text
 InvoiceService
 CustomerService
@@ -260,543 +789,181 @@ PrintService
 BackupService
 SettingsService
 ```
-
-Services should depend on interfaces/ports rather than concrete UI components.
-
+Services should contain use-case orchestration.
 Example:
-
 ```text
-InvoiceService
-    ├── InvoiceRepository
-    ├── CustomerRepository
-    └── CalculationService
+InvoiceService.finalize()
+    ↓
+validate draft
+    ↓
+determine tax
+    ↓
+calculate totals
+    ↓
+open transaction
+    ↓
+reserve invoice number
+    ↓
+create snapshots
+    ↓
+persist invoice
+    ↓
+commit
 ```
-
-PDF generation should be isolated:
-
-```text
-PDFService
-    └── Invoice PDF Renderer
-```
-
-Printing should be isolated:
-
-```text
-PrintService
-    └── OS print adapter
-```
-
-This prevents platform-specific printing code from contaminating the business layer.
-
 ---
-
-# 8. Domain Layer
-
-Location:
-
-```text
-src/domain/
-```
-
-The domain layer should contain the business concepts and calculation rules.
-
-Suggested objects:
-
-```text
-Company
-Customer
-Invoice
-InvoiceLine
-TaxSummary
-PaymentDetails
-InvoiceTotals
-```
-
-Enums:
-
-```text
-InvoiceStatus
-PaymentStatus
-TaxType
-```
-
-Possible invoice states:
-
-```text
-DRAFT
-FINALIZED
-CANCELLED
-```
-
-Payment states:
-
+32. Payment Status
+Payment status is separate from invoice status.
+Allowed:
 ```text
 UNPAID
 PARTIAL
 PAID
 ```
-
-Payment status is independent of invoice lifecycle.
-
+Provide:
+```text
+PaymentService.update_status()
+```
+or equivalent application operation.
+Payment status changes:
+must not modify invoice totals;
+must not modify invoice number;
+must not alter finalized invoice content;
+must be locally persisted.
+Version 1 should not claim an authoritative outstanding balance unless actual payment amounts are tracked.
 ---
-
-# 9. Money Representation
-
-All money calculations must use:
-
+33. Cancellation
+Cancellation must preserve the original record.
+Recommended fields:
 ```text
-Decimal
+cancelled_at
+cancel_reason
 ```
-
-Never use:
-
+Optionally:
 ```text
-float
+replacement_invoice_id
 ```
-
-for:
-
-- Rate
-- Discount amount
-- Taxable amount
-- CGST
-- SGST
-- IGST
-- Round-off
-- Grand total
-- Amount paid
-
-The goal is deterministic billing calculations.
-
-Recommended conceptual flow:
-
+The UI must distinguish:
 ```text
-Quantity × Rate
-       ↓
-Gross line amount
-       ↓
-Discount
-       ↓
-Taxable amount
-       ↓
-GST
-       ↓
-Line total
-       ↓
-Invoice aggregation
-       ↓
-Round-off
-       ↓
-Grand total
+Discard Draft
 ```
-
+from:
+```text
+Cancel Finalized Invoice
+```
+A cancelled invoice must retain:
+Original number
+Original values
+Original snapshots
+The application must not claim that local cancellation updates external tax filings or an IRP.
 ---
-
-# 10. Tax Architecture
-
-Tax calculations should be centralized.
-
-Do not calculate tax independently in:
-
-- UI
-- PDF renderer
-- database layer
-
-There should be one authoritative calculation implementation.
-
-Example:
-
+34. Duplication
+Duplication creates:
 ```text
-CalculationService
-       │
-       ├── calculate_line_amount()
-       ├── calculate_discount()
-       ├── calculate_taxable_amount()
-       ├── calculate_cgst_sgst()
-       ├── calculate_igst()
-       ├── calculate_round_off()
-       └── calculate_invoice_totals()
-```
-
-Tax treatment:
-
-```text
-Company State
-      +
-Customer / Place of Supply
+Finalized Invoice
       ↓
-Tax Treatment
-      ├── INTRA_STATE → CGST + SGST
-      └── INTER_STATE → IGST
+New Draft
 ```
-
-Tax rates must be configurable.
-
-The sample invoices use 18% total tax, shown as 9% CGST + 9% SGST. The reference image demonstrates an IGST presentation.
-
-Do not hardcode 9% + 9% into the architecture.
-
+Do not carry over:
+Original invoice ID
+Official invoice number
+Finalized status
+Payment status
+Finalized calculated totals as authoritative data
+The duplicate should recalculate when finalized.
+Fields such as date, payment terms, references, customer and technical details may be copied according to documented product behavior.
 ---
-
-# 11. Rounding Architecture
-
-Round-off must be represented explicitly.
-
-Use:
-
+35. PDF Architecture
+PDF generation is isolated from database access.
 ```text
-raw_total
-rounded_total
-round_off = rounded_total - raw_total
-```
-
-The round-off amount must appear independently on the invoice.
-
-All rounding rules should live in one place.
-
-Example:
-
-```text
-CalculationService
-    ↓
-InvoiceTotals
-    ├── taxable_amount
-    ├── cgst
-    ├── sgst
-    ├── igst
-    ├── raw_total
-    ├── round_off
-    └── grand_total
-```
-
-This logic must have dedicated tests using the sample invoices.
-
----
-
-# 12. Invoice Domain Model
-
-Conceptually:
-
-```text
-Invoice
-├── identity
-│   ├── id
-│   ├── invoice_number
-│   └── invoice_date
-│
-├── parties
-│   ├── company
-│   └── customer
-│
-├── references
-│   ├── PO
-│   ├── challan
-│   ├── delivery note
-│   ├── dispatch document
-│   ├── vehicle
-│   └── destination
-│
-├── commercial
-│   ├── payment terms
-│   ├── due date
-│   └── place of supply
-│
-├── line_items[]
-│
-├── totals
-│   ├── taxable
-│   ├── CGST
-│   ├── SGST
-│   ├── IGST
-│   ├── round-off
-│   └── grand total
-│
-├── notes
-├── terms
-├── declaration
-│
-└── status
-```
-
----
-
-# 13. Line Item Architecture
-
-A mould/machining line item should support structured technical information.
-
-Recommended domain structure:
-
-```text
-InvoiceLine
-├── sequence
-├── job_or_mould_reference
-├── component_or_part
-├── operation
-├── description
-├── specification
-├── hsn_sac
-├── quantity
-├── unit
-├── rate
-├── discount_percent
-├── tax_rate
-└── calculated_amounts
-```
-
-The `description` field remains necessary because not every mould operation can be represented by fixed fields.
-
-Example:
-
-```text
-Job/Mould: DT-663
-Operation: Punch Gun Drilling
-Specification: Drill Dia 9 × 307 mm Deep
-Qty: 16
-Unit: NOS
-HSN/SAC: 998898
-```
-
-This is preferable to storing the entire technical description as one uncontrolled string.
-
----
-
-# 14. Repository Architecture
-
-Use repository interfaces to keep persistence independent from application services.
-
-Example:
-
-```text
-InvoiceRepository
-CustomerRepository
-CompanyRepository
-```
-
-Interfaces:
-
-```text
-src/domain/repositories/
-├── invoice_repository.py
-├── customer_repository.py
-└── company_repository.py
-```
-
-SQLite implementations:
-
-```text
-src/infrastructure/database/
-├── sqlite_connection.py
-├── invoice_repository.py
-├── customer_repository.py
-└── company_repository.py
-```
-
-The service layer depends on repository interfaces.
-
-This makes testing easier and prevents SQL from leaking into business logic.
-
----
-
-# 15. Database Architecture
-
-Use SQLite as the local relational database.
-
-Conceptual entities:
-
-```text
-companies
-customers
-invoices
-invoice_items
-invoice_sequences
-```
-
-Optional:
-
-```text
-invoice_tax_summaries
-service_templates
-app_settings
-```
-
-Do not create tables simply because they are theoretically possible.
-
----
-
-# 16. Database Relationships
-
-```text
-COMPANY
-   │
-   └─────────────┐
-                 │
-                 ▼
-              INVOICE
-                 │
-                 ├────────── CUSTOMER
-                 │
-                 └──────────< INVOICE_ITEM
-```
-
-One invoice has many line items.
-
-One customer can have many invoices.
-
-Invoice line items must be deleted when their parent draft invoice is intentionally deleted.
-
-Finalized invoices should not be hard-deleted through normal application workflows.
-
----
-
-# 17. Invoice Snapshot Principle
-
-A finalized invoice should represent what was actually billed at the time it was finalized.
-
-Therefore, the PDF must not rely blindly on today's customer/company master data.
-
-When an invoice is finalized, the application should preserve the required invoice-facing values, including:
-
-- Company name/address/GSTIN
-- Customer name/address/GSTIN
-- Billing information
-- Shipping/consignee information
-- Invoice references
-- Line item values
-- Tax values
-- Totals
-- Notes/terms/declaration
-
-This prevents editing a customer master tomorrow from silently changing a historical invoice.
-
-A practical implementation is to store invoice-specific snapshot fields alongside the foreign keys to the masters.
-
----
-
-# 18. Invoice Numbering Architecture
-
-Invoice numbering requires a dedicated sequence mechanism.
-
-Do not calculate the next number by simply:
-
-```text
-SELECT MAX(invoice_number)
-```
-
-because string parsing and race conditions make that fragile.
-
-Use:
-
-```text
-invoice_sequences
-```
-
-conceptually:
-
-```text
-company_id
-financial_year
-prefix
-next_sequence
-```
-
-At invoice finalization:
-
-```text
-Begin transaction
-    ↓
-Reserve next sequence
-    ↓
-Build invoice number
-    ↓
-Persist invoice
-    ↓
-Commit
-```
-
-Because the application is single-computer, this remains simple while still being correct.
-
----
-
-# 19. Draft vs Finalized Data
-
-### Draft
-
-Can be:
-
-- Created
-- Edited
-- Deleted
-- Saved repeatedly
-
-### Finalized
-
-Should be:
-
-- Number locked
-- Financial values locked
-- Customer/company invoice-facing values preserved
-- Printable
-- Exportable
-- Reprintable
-
-### Cancelled
-
-Should:
-
-- Preserve the original record
-- Preserve invoice number
-- Preserve original values
-- Show cancellation state
-
-This is better than using a generic `is_deleted` flag for finalized invoices.
-
----
-
-# 20. PDF Architecture
-
-PDF generation should be a separate infrastructure/application service.
-
-```text
-Invoice
-  ↓
+InvoiceService
+      ↓
+InvoiceRenderDTO
+      ↓
 PDFService
-  ↓
+      ↓
 InvoiceRenderer
-  ↓
+      ↓
 ReportLab
-  ↓
-PDF bytes
-  ↓
-Save / Preview / Print
+      ↓
+PDF
 ```
-
-Recommended modules:
-
-```text
-src/infrastructure/pdf/
-├── invoice_renderer.py
-├── styles.py
-├── components.py
-├── tables.py
-├── amount_words.py
-└── qr_renderer.py
-```
-
-The renderer should receive already-calculated invoice data.
-
-It should **not perform accounting calculations**.
-
+The renderer must not:
+Query SQLite
+Calculate GST
+Generate invoice numbers
+Change invoice state
+It only renders prepared invoice data.
 ---
-
-# 21. PDF Layout Architecture
-
-The invoice should be rendered in this order:
-
+36. Render DTO
+The PDF renderer should receive a dedicated immutable/read-only render DTO.
+It should contain everything required to render the document:
+```text
+Invoice identity
+Company snapshot
+Customer snapshot
+Bill-to
+Ship-to
+References
+Mould/job lines
+Tax details
+Totals
+Words
+Payment details
+Notes
+Terms
+Declaration
+Assets
+Template version
+Invoice status
+Payment status presentation
+```
+This prevents the renderer from reaching back into application state.
+---
+37. PDF Components
+Recommended renderer components:
+```text
+InvoiceRenderer
+├── HeaderRenderer
+├── InvoiceMetadataRenderer
+├── PartyDetailsRenderer
+├── ReferenceDetailsRenderer
+├── LineItemsRenderer
+├── TaxSummaryRenderer
+├── TotalsRenderer
+├── AmountWordsRenderer
+├── PaymentRenderer
+├── NotesRenderer
+├── TermsRenderer
+├── DeclarationRenderer
+├── SignatureRenderer
+└── FooterRenderer
+```
+Components should focus on presentation only.
+---
+38. PDF Input Safety
+User-controlled strings may contain:
+```text
+&
+<
+>
+```
+Do not insert raw user text into ReportLab markup.
+Escape text before using paragraph markup.
+The PDF font set must support:
+₹
+×
+Normal Latin text
+Required punctuation
+Long technical descriptions must wrap without clipping.
+---
+39. PDF Layout
+The PDF follows `PDF_LAYOUT.md`.
+Main order:
 ```text
 1. Header / Branding
 2. Invoice Metadata
 3. Bill To / Ship To
-4. Reference / Logistics Details
+4. References / Logistics
 5. Mould / Machining Line Items
 6. Tax Summary
 7. Totals
@@ -805,506 +972,665 @@ The invoice should be rendered in this order:
 10. Notes
 11. Terms & Conditions
 12. Declaration
-13. Authorized Signatory
+13. Signature
 14. Footer / Page Number
 ```
-
-The visual style should combine:
-
-- Tally's detailed accounting information
-- The reference image's clearer visual hierarchy
-
----
-
-# 22. PDF Rendering Strategy
-
-Prefer deterministic programmatic layout.
-
-Use ReportLab tables and drawing primitives.
-
-Avoid depending on browser rendering unless a later requirement specifically needs HTML-based templates.
-
-The PDF renderer should have reusable components:
-
+The design should combine:
 ```text
-InvoiceHeader
-PartyDetails
-InvoiceReferences
-LineItemsTable
-TaxSummary
-TotalsBlock
-PaymentBlock
-NotesBlock
-TermsBlock
-SignatureBlock
-Footer
+Tally information density
++
+Modern hierarchy
++
+Mould technical readability
 ```
-
-This keeps the PDF implementation maintainable.
-
 ---
-
-# 23. PDF Preview Architecture
-
-The application should not duplicate the invoice layout in a separate visual preview.
-
-Preferred flow:
-
-```text
-Invoice
-   ↓
-PDFService
-   ↓
-PDF file/bytes
-   ↓
-OS PDF viewer or embedded viewer
-```
-
-The preview should show the same document that will be printed/exported.
-
-Avoid maintaining two independent rendering implementations.
-
+40. PDF Optional Sections
+Optional content should disappear cleanly.
+Examples:
+Due date
+PO
+Vehicle
+UPI QR
+Notes
+Signature image
+Do not print meaningless empty labels unless the layout explicitly requires a stable structure.
 ---
-
-# 24. Printing Architecture
-
-The application generates one authoritative PDF.
-
-Printing uses that PDF.
-
+41. Long Document Handling
+For multi-page invoices:
+Repeat table headings.
+Prevent row clipping where practical.
+Preserve long descriptions.
+Keep totals together where possible.
+Keep signature/declaration on the final page.
+Show page numbers on every page.
+Very large blocks must have fallback behavior.
+Do not use unconditional "keep together" rules that can make an element impossible to render.
+---
+42. PDF Preview
+Preview, export and print must use the same generated PDF.
 ```text
 Invoice
    ↓
 PDFService
    ↓
 PDF
-   ↓
+ ├── Preview
+ ├── Export
+ └── Print
+```
+Do not create a separate HTML/UI version of the invoice for preview if the actual output is the ReportLab PDF.
+---
+43. Printing Architecture
+Printing is an infrastructure concern.
+```text
+PDFService
+    ↓
 PrintService
-   ↓
+    ↓
+PrintAdapter
+    ↓
 Operating System Printer
 ```
-
-The print adapter should be replaceable for Windows/macOS/Linux.
-
-The business layer should know nothing about Windows print APIs or other platform-specific details.
-
----
-
-# 25. File Storage Architecture
-
-Use an application data directory appropriate for the operating system.
-
-Conceptually:
-
+Use an interface:
 ```text
-App Data/
+PrintAdapter
+```
+with platform-specific implementations.
+Start with Windows as the primary supported platform.
+The business/domain layers must have no dependency on Windows print APIs.
+---
+44. Export Architecture
+Export should use a safe file-writing flow:
+```text
+Generate PDF
+    ↓
+Write temporary file
+    ↓
+Flush / verify
+    ↓
+Atomic move to destination
+```
+Do not overwrite an existing PDF silently unless that behavior is explicitly chosen by the user.
+Export failure must never modify invoice data.
+---
+45. Backup Architecture
+Backup is a first-class reliability feature, not an end-of-project utility.
+Use SQLite's supported backup mechanism rather than blindly copying a live database file.
+Backup package should contain:
+```text
+database
+application/schema version
+required assets
+manifest
+```
+Conceptually:
+```text
+Live Database
+      ↓
+BackupService
+      ↓
+Temporary Backup
+      ↓
+Integrity Validation
+      ↓
+Published Backup
+```
+Never publish a backup that has not been validated.
+---
+46. Restore Architecture
+Restore must be staged.
+```text
+Select Backup
+      ↓
+Validate File
+      ↓
+Validate Schema
+      ↓
+Validate DB Integrity
+      ↓
+Validate Required Assets
+      ↓
+Create Safety Backup of Current Data
+      ↓
+Stop Writes / Close Connections
+      ↓
+Replace Database
+      ↓
+Reload
+```
+If replacement or reload fails:
+```text
+Recover from safety backup
+```
+A restore must not silently overwrite current usable data.
+---
+47. Restore and Invoice Numbering
+Restoring an older backup can reintroduce an old sequence.
+Example:
+```text
+Backup contains invoices through 100
+
+Later:
+101, 102, 103 issued
+
+Restore old backup
+
+Database thinks:
+next = 101
+```
+The unique constraint cannot prevent reuse of invoices that are no longer present in the restored database.
+Therefore, restored data must enter a recovery/reconciliation state when necessary.
+The operator must confirm the current high-water mark for affected invoice series before new finalization.
+The application should prevent silent reuse.
+This safeguard does not recover missing invoice records; it only prevents accidental reuse of their numbers.
+---
+48. Asset Backup / Restore
+Because finalized invoices can reference versioned assets, backup/restore must preserve:
+```text
+Logo versions
+Signature versions
+Other invoice assets
+```
+Restore must validate that required assets exist.
+If an asset is missing:
+do not silently substitute a newer asset;
+report the missing asset;
+preserve the current database if restore cannot be completed safely.
+---
+49. File System Architecture
+Use platform-aware user-data paths.
+Conceptually:
+```text
+User Data/
 ├── database/
 │   └── invoices.db
+│
 ├── exports/
+│   └── *.pdf
+│
 ├── backups/
+│   └── *.backup
+│
 ├── assets/
-│   ├── logo
-│   └── signature
+│   ├── logos/
+│   └── signatures/
+│
 └── logs/
+    └── app.log
 ```
-
-Do not hardcode Unix-style paths in application logic.
-
-Use a platform-aware path abstraction.
-
+Do not hardcode Unix-style `~/.invoices_local` into application behavior.
+Resolve the platform-appropriate application-data directory.
 ---
-
-# 26. Backup Architecture
-
-Backups are local.
-
-```text
-SQLite DB
-   ↓
-BackupService
-   ↓
-Timestamped backup file
-```
-
-Support:
-
-- Manual backup
-- Manual restore
-- Optional automatic backups
-
-Before destructive database replacement:
-
-```text
-Current DB
-   ↓
-Safety backup
-   ↓
-Validate selected backup
-   ↓
-Restore
-   ↓
-Restart/reload application
-```
-
-Restoring must not silently destroy the current database.
-
----
-
-# 27. Asset Management
-
-Company assets:
-
-- Logo
-- Signature/stamp
-
-should be stored outside the SQLite database as local files unless there is a strong reason to embed them.
-
-Database stores:
-
-```text
-logo_path
-signature_path
-```
-
-The PDF renderer loads the files when required.
-
-If the file is missing, the invoice should degrade gracefully and show an appropriate validation/error message.
-
----
-
-# 28. Configuration Architecture
-
-Use persistent application settings for:
-
-- Company details
-- Bank details
-- Default GST settings
-- Invoice numbering configuration
-- Default payment terms
-- Default notes
-- Default Terms & Conditions
-- PDF output location
-- Backup settings
-
-Do not put business settings into `.env`.
-
-`.env` is for development/runtime secrets/configuration and should not be required for normal end-user operation.
-
-For this local billing product, user-editable settings should live in the application database or a dedicated local configuration store.
-
----
-
-# 29. Error Boundary
-
-Errors should be handled at clear boundaries.
-
-```text
-UI
- ↓
-Application Service
- ↓
-Repository / Infrastructure
-```
-
+50. Configuration Architecture
+User-editable configuration should be stored locally.
 Examples:
-
-```text
-DatabaseError
-PDFGenerationError
-PrinterError
-BackupError
-ValidationError
-```
-
-The UI converts these into user-facing messages.
-
-Business code should not show UI dialogs directly.
-
+Company details
+Bank details
+UPI
+Invoice numbering
+Default tax
+Default payment terms
+Default notes
+Default terms
+Declaration
+Export path
+Backup settings
+Current template configuration
+`.env` must not be required for normal end-user operation.
 ---
-
-# 30. Logging Architecture
-
-Use standard Python logging.
-
-Log locally:
-
-```text
-logs/app.log
-```
-
-Useful events:
-
-- Application startup/shutdown
-- Database initialization failure
-- Invoice save/finalization failure
-- PDF generation failure
-- Print failure
-- Backup/restore failure
-
-Do not log sensitive data unnecessarily.
-
----
-
-# 31. Threading / Responsiveness
-
-Most operations are small and can remain synchronous.
-
-Potentially long-running operations:
-
-- PDF rendering for large invoices
-- Backup creation
-- Restore
-- File operations
-
-These can be moved off the UI thread when necessary.
-
-The rule is:
-
-> Never block the PySide6 UI thread with an operation that can take noticeable time.
-
-Do not introduce asynchronous complexity merely for database CRUD that completes immediately on a local SQLite database.
-
----
-
-# 32. Dependency Injection
-
-Use constructor injection for services and repositories.
-
-Example conceptual structure:
-
-```text
-InvoiceService(
-    invoice_repository,
-    customer_repository,
-    calculation_service
-)
-```
-
-PDF:
-
-```text
-PDFService(
-    invoice_renderer
-)
-```
-
-Print:
-
-```text
-PrintService(
-    pdf_service,
-    print_adapter
-)
-```
-
-This makes unit testing straightforward.
-
----
-
-# 33. Application Composition Root
-
-Create one composition root responsible for wiring dependencies.
-
-Example:
-
+51. Application Composition Root
+Use one composition root.
+Suggested:
 ```text
 src/bootstrap.py
 ```
-
+Responsibilities:
+Resolve paths
+Open database
+Run migrations
+Create repositories
+Create domain/application services
+Create infrastructure adapters
+Create UI dependencies
 Conceptually:
-
 ```text
 SQLiteConnection
-      ↓
+       ↓
 Repositories
-      ↓
+       ↓
 Services
-      ↓
-Controllers/ViewModels
-      ↓
+       ↓
+Controllers / Models
+       ↓
 PySide6 UI
 ```
-
-The rest of the application should not instantiate dependencies randomly.
-
+No random service construction from individual widgets.
 ---
-
-# 34. UI State Management
-
-Avoid putting all state into one gigantic MainWindow class.
-
-Suggested:
-
+52. UI Architecture
+Use PySide6 Model/View patterns for lists and tables.
+Suggested modules:
 ```text
-MainWindow
-   ├── DashboardController
-   ├── CustomerController
-   ├── InvoiceController
-   └── SettingsController
+src/ui/
+├── main_window.py
+│
+├── dashboard/
+├── customers/
+│   ├── customer_list.py
+│   └── customer_form.py
+│
+├── invoices/
+│   ├── invoice_list.py
+│   ├── invoice_form.py
+│   └── invoice_preview.py
+│
+├── settings/
+│   └── settings_window.py
+│
+└── common/
+    ├── dialogs.py
+    ├── validation.py
+    └── widgets.py
 ```
-
-For PySide6, use a predictable model/view approach for:
-
-- Customer lists
-- Invoice lists
-- Invoice line-item tables
-
-This avoids fragile direct manipulation of widgets.
-
+Avoid a giant `MainWindow` containing the entire application.
 ---
-
-# 35. Invoice Form Data Flow
-
+53. Invoice UI State
+The invoice form should explicitly distinguish:
 ```text
-User selects Customer
-        ↓
-CustomerService
-        ↓
-Customer data loaded
-        ↓
-Invoice draft state updated
-
-User adds line item
-        ↓
-InvoiceController
-        ↓
-InvoiceService / CalculationService
-        ↓
-Totals updated
-        ↓
-UI refreshed
-
-User clicks Finalize
-        ↓
-Validate
-        ↓
-Reserve invoice number
-        ↓
-Calculate final totals
-        ↓
-Persist final invoice
-        ↓
-Generate PDF
-        ↓
-Preview / Print
+Draft editing
+Finalization validation
+Finalized read-only view
+Cancelled view
 ```
-
----
-
-# 36. Customer Data Flow
-
+Draft actions
 ```text
-Customer Form
-     ↓
-Validation
-     ↓
-CustomerService
-     ↓
-CustomerRepository
-     ↓
-SQLite
+Save Draft
+Close
+Delete Draft
+Finalize
 ```
-
-The invoice screen should query the CustomerService rather than SQL directly.
-
----
-
-# 37. Invoice History Data Flow
-
+Finalized actions
 ```text
-Invoice List UI
-      ↓
-InvoiceService.list(...)
-      ↓
-InvoiceRepository
-      ↓
-SQLite
-      ↓
-Invoice list model
-      ↓
-PySide6 table
+View
+Preview
+Print
+Export
+Mark Payment Status
+Cancel
+Duplicate
 ```
-
-Filters:
-
-- Invoice number
-- Customer
-- Date range
-- Invoice status
-- Payment status
-
-The list should not load every invoice line item when the user only needs summary information.
-
+Cancelled actions
+```text
+View
+Preview
+Export
+Duplicate
+```
+Do not show "Save" or unrestricted editing controls for finalized invoices.
 ---
-
-# 38. Security Model
-
-There is no server security model because the product is local-only.
-
-Security priorities are:
-
-- File-system permissions
-- Local access protection
-- Safe SQL
-- Reliable backups
-- Avoiding accidental destructive operations
-
+54. Dirty State Handling
+The invoice editor must track unsaved changes.
+When closing a dirty draft:
+```text
+Save
+Discard
+Cancel
+```
+must be offered where appropriate.
+"Cancel invoice" must never be used for merely closing an unsaved draft.
+---
+55. Error Handling
+Define application-level errors:
+```text
+ValidationError
+InvoiceStateError
+DuplicateInvoiceNumberError
+DatabaseError
+MigrationError
+PDFGenerationError
+PrintError
+BackupError
+RestoreError
+AssetError
+```
+UI converts these to business-friendly messages.
+Domain/application services must not display UI dialogs directly.
+---
+56. Logging
+Use standard Python logging.
+Log:
+Startup/shutdown
+Migration errors
+Invoice finalization failures
+PDF failures
+Printer failures
+Backup failures
+Restore failures
+Do not log:
+Unnecessary customer personal information
+Sensitive payment credentials
+Full invoice contents unless intentionally required for diagnostics
+Normalize paths when configuring handlers so repeated logger setup does not create duplicate handlers.
+---
+57. Threading Rules
+Most local database operations may remain synchronous.
+Potentially long operations:
+PDF generation for unusually large invoices
+Backup
+Restore
+Large file operations
+These may use worker threads.
+Rule:
+> Never block the PySide6 UI thread with a noticeably long-running operation.
+If SQLite access occurs from a worker:
+Use a connection created for that worker.
+Respect SQLite thread-affinity rules.
+Do not globally disable thread checks as a shortcut.
+---
+58. Backup and Worker Interaction
+Before backup/restore:
+```text
+Coordinate active DB work
+        ↓
+Ensure transaction state is stable
+        ↓
+Perform backup/restore
+```
+There must be a clear connection-lifetime policy.
+No background task may continue writing to a database while restore is replacing it.
+---
+59. Performance
+The application is intended for a small-business local workload.
+Target:
+Fast startup
+Responsive invoice form
+Fast customer search
+Fast invoice search
+PDF generated within a few seconds for normal invoices
+Thousands of invoices remain usable
+Do not use:
+Distributed caching
+Message brokers
+Remote services
+to solve a workload SQLite can handle.
+---
+60. Security and Data Integrity
+The application is local-only, so the key security concerns are:
+Safe SQL
+Local file permissions
+Data loss prevention
+Reliable backup
+Controlled destructive operations
+Immutable finalized records
 Use parameterized SQL.
-
-Do not execute user input as SQL.
-
+Do not execute SQL built from user input.
 ---
-
-# 39. Network Boundary
-
-The application must not require internet access.
-
+61. Testing Architecture
+Testing follows the same boundaries as production code.
 ```text
-┌───────────────────────────────┐
-│       LOCAL APPLICATION       │
-│                               │
-│ PySide6                       │
-│ Python                        │
-│ SQLite                        │
-│ ReportLab                     │
-│ Local Files                   │
-│ Local Printer                 │
-└───────────────────────────────┘
-
-              X
-        INTERNET / CLOUD
+Unit
+  ↓
+Repository
+  ↓
+Service
+  ↓
+PDF
+  ↓
+UI / Integration
+  ↓
+Packaged Windows smoke test
 ```
-
-No runtime service should require:
-
-- AWS
-- Google Cloud
-- Azure
-- REST APIs
-- SaaS database
-- remote authentication
-- remote GST validation
-
+61.1 Domain Unit Tests
+Test:
+Money parsing
+Decimal serialization
+GST calculations
+Discount
+Round-off
+Tax-summary grouping
+Amount in words
+Validation
+Numbering rules
+Status transitions
+61.2 Repository Tests
+Test:
+Save/load
+Exact numeric round trips
+Foreign keys
+Constraints
+Transactions
+Migrations
+Sequence behavior
+61.3 Service Tests
+Test:
+Draft creation
+Draft save/reopen
+Finalization
+Repeat finalization
+Cancellation
+Duplication
+Payment status
+Snapshot creation
+Master-data changes after finalization
+61.4 PDF Tests
+Test:
+PDF opens
+A4 size
+Required fields
+Required symbols
+Correct totals
+Correct tax
+Technical descriptions
+Special characters
+Long names
+Long addresses
+Multi-page invoices
+Missing optional assets
+61.5 Recovery Tests
+Test:
+Backup
+Corrupt backup
+Missing asset
+Unsupported schema
+Failed replacement
+Restore on a clean profile
+Number reconciliation after restoring an old backup
+61.6 UI Tests
+Focus on critical workflows rather than implementation details of every widget.
 ---
+62. Golden Invoice Fixtures
+Use fixture data under:
+```text
+tests/fixtures/
+├── invoice_043.json
+└── invoice_089.json
+```
+The documented aggregate values are:
+Invoice 043
+```text
+Taxable Value : ₹12,280.00
+CGST          : ₹1,105.20
+SGST          : ₹1,105.20
+Round-Off     : -₹0.40
+Grand Total   : ₹14,490.00
+```
+Invoice 089
+```text
+Taxable Value : ₹8,332.00
+CGST          : ₹749.88
+SGST          : ₹749.88
+Round-Off     : ₹0.24
+Grand Total   : ₹9,832.00
+```
+Do not invent missing original line-level inputs.
+Where only aggregate values are known, tests must be labelled as aggregate regression tests rather than claiming complete pixel/value reproduction of the original source invoice.
+---
+63. Testing Financial Precision
+Tests must cover:
+₹0.01
+Small taxable amounts
+Paise
+Fractional quantities
+Discounts
+Multiple tax rates
+Same HSN/SAC with different tax rates
+Positive round-off
+Negative round-off
+Large valid totals
+Invalid negative values
+NaN/infinity rejection
+Every numeric round trip must be exact.
+---
+64. Windows-First Validation
+Primary release platform:
+```text
+Windows
+```
+A Windows smoke-test environment must prove:
+Clean install
+Clean launch
+Database creation
+Company setup
+Customer setup
+Invoice creation
+Finalization
+PDF generation
+Preview
+Printer discovery
+Print
+Backup
+Restore
+Offline operation
+Data-preserving upgrade
+Cross-platform packaging is optional future work unless a business requirement requires it.
+---
+65. Packaging Architecture
+Separate application installation from user data.
+```text
+Application Install
+        ≠
+User Data
+```
+Example:
+```text
+Application directory
+    ↓
+Executable + bundled dependencies
 
-# 40. Project Structure
-
-Recommended structure:
-
+User AppData directory
+    ↓
+Database
+Exports
+Backups
+Assets
+Logs
+```
+An application update must not delete invoice data.
+---
+66. Reproducible Build
+Packaging configuration should be committed to source control.
+The build should define:
+Python version
+Dependency versions/ranges
+Application version
+Bundled assets
+Entry point
+Windows packaging configuration
+Do not rely on an undocumented development environment.
+---
+67. Application Startup
+Startup sequence:
+```text
+Launch
+  ↓
+Resolve user data directory
+  ↓
+Initialize logging
+  ↓
+Open SQLite
+  ↓
+Run migrations
+  ↓
+Validate required configuration
+  ↓
+Create repositories
+  ↓
+Create services
+  ↓
+Create UI models/controllers
+  ↓
+Open main window
+```
+No network health check is allowed.
+If migration or database initialization fails, fail safely with a clear error.
+---
+68. Application Shutdown
+Shutdown should:
+```text
+Stop background operations
+      ↓
+Finish/cancel supported tasks
+      ↓
+Flush logging
+      ↓
+Commit/rollback active transactions
+      ↓
+Close DB connections
+      ↓
+Exit
+```
+Restore cannot occur while another component still owns an active write connection.
+---
+69. Offline Boundary
+The runtime must operate fully without internet access.
+Required offline workflows:
+```text
+Create customer
+Create draft
+Finalize invoice
+Calculate GST
+Generate PDF
+Preview
+Print
+Export
+Search
+Backup
+Restore
+```
+There must be no runtime dependency on:
+AWS
+Azure
+Google Cloud
+External APIs
+Online GST services
+Cloud authentication
+Remote databases
+---
+70. Architecture Folder Structure
+Recommended final structure:
 ```text
 invoice-generator/
 │
 ├── .kiro/
 │   ├── steering/
+│   │   ├── product-rules.md
 │   │   ├── architecture.md
-│   │   ├── coding-standards.md
-│   │   └── product-rules.md
+│   │   └── coding-standards.md
+│   │
 │   ├── hooks/
+│   │
 │   └── specs/
 │       └── invoice-generator/
 │           ├── requirements.md
 │           ├── design.md
 │           └── tasks.md
+│
+├── docs/
+│   ├── PRODUCT_REQUIREMENTS.md
+│   ├── ARCHITECTURE.md
+│   ├── INVOICE_RULES.md
+│   ├── PDF_LAYOUT.md
+│   ├── OPEN_QUESTIONS.md
+│   └── DECISIONS.md
 │
 ├── src/
 │   ├── main.py
@@ -1323,6 +1649,7 @@ invoice-generator/
 │   │
 │   ├── infrastructure/
 │   │   ├── database/
+│   │   │   └── migrations/
 │   │   ├── pdf/
 │   │   ├── printing/
 │   │   ├── backup/
@@ -1338,6 +1665,7 @@ invoice-generator/
 ├── tests/
 │   ├── unit/
 │   ├── integration/
+│   ├── recovery/
 │   └── fixtures/
 │
 ├── assets/
@@ -1346,554 +1674,227 @@ invoice-generator/
 ├── README.md
 └── .gitignore
 ```
-
-The structure is intentionally larger than a single-file application but smaller than a full enterprise architecture.
-
 ---
+71. Architecture Decision Records
+Significant decisions should be recorded separately in:
+```text
+docs/DECISIONS.md
+```
+Examples:
+```text
+ADR-001
+PySide6 chosen for desktop UI
 
-# 41. Testing Architecture
+ADR-002
+SQLite chosen for local persistence
 
-Tests should follow the architecture.
+ADR-003
+Decimal chosen for money calculations
 
-## Unit
+ADR-004
+Finalized invoices are immutable
 
-Test:
+ADR-005
+ReportLab chosen for deterministic PDF rendering
 
-- GST calculations
-- Discount calculations
-- Round-off
-- Amount-to-words
-- Invoice numbering
-- Validation
-- Domain rules
-
-## Repository Tests
-
-Test:
-
-- Customer persistence
-- Invoice persistence
-- Transaction behavior
-- Sequence handling
-
-## Service Tests
-
-Test:
-
-- Create invoice
-- Finalize invoice
-- Cancel invoice
-- Duplicate invoice
-- Search/filter
-- Backup/restore orchestration
-
-## PDF Tests
-
-Test:
-
-- PDF generated successfully
-- Correct page size
-- Correct invoice values
-- Correct tax values
-- Required text present
-- Sample invoice calculations reproduced
-
-## UI Tests
-
-Focus on critical workflows rather than testing every widget implementation detail.
-
+ADR-006
+Windows is the first release platform
+```
+This prevents AI agents from repeatedly revisiting settled decisions.
 ---
-
-# 42. Golden Test Invoices
-
-The two real invoices should become fixed regression fixtures.
-
-## Fixture 1
-
+72. Open Questions
+Unresolved business decisions must be tracked in:
 ```text
-Invoice: SE/26-27/043
-Customer: DI-TECH MOULDS
-Taxable: ₹12,280.00
-CGST: ₹1,105.20
-SGST: ₹1,105.20
-Round-off: -₹0.40
-Total: ₹14,490.00
+docs/OPEN_QUESTIONS.md
 ```
-
-## Fixture 2
-
-```text
-Invoice: SE/26-27/089
-Customer: BMSS STEEL INDUSTRIES PRIVATE LIMITED
-Taxable: ₹8,332.00
-CGST: ₹749.88
-SGST: ₹749.88
-Round-off: ₹0.24
-Total: ₹9,832.00
-```
-
-These are regression tests for the calculation engine and PDF output.
-
+Examples:
+Exact invoice-number allocation point
+Existing Tally sequence initialization
+Supported GST special cases
+Exact future-date policy
+Restore high-water reconciliation workflow
+Payment-status behavior
+Historical PDF/template policy
+Cancellation workflow for already reported invoices
+AI agents must not silently invent answers to these questions.
 ---
-
-# 43. PDF Acceptance Testing
-
-PDF correctness should be tested at two levels.
-
-### Programmatic
-
-Verify:
-
-- File exists
-- PDF opens
-- Page count
-- Required text exists
-- Expected totals exist
-- Required sections exist
-
-### Visual
-
-Manually inspect:
-
-- Header alignment
-- Company branding
-- Customer sections
-- Mould line items
-- Tax table
-- Totals
-- Signature
-- QR code
-- Page breaks
-- Printing appearance
-
-The final invoice must be tested both digitally and on paper.
-
+73. Kiro Steering Rules
+Kiro should always be reminded of these project constraints:
+```text
+1. Local desktop billing application.
+2. No cloud runtime.
+3. No backend server.
+4. No REST API.
+5. No remote database.
+6. PySide6 UI.
+7. SQLite persistence.
+8. ReportLab PDF.
+9. Decimal for money.
+10. UI contains no SQL.
+11. UI contains no business calculations.
+12. PDF renderer contains no business calculations.
+13. Finalized invoices are immutable.
+14. Invoice numbering is transactional.
+15. Historical snapshots are mandatory.
+16. Finalized assets are versioned.
+17. Backup/restore is a reliability feature.
+18. Sample invoice calculations are regression fixtures.
+19. Do not add infrastructure without a requirement.
+20. Do not silently modify requirements.
+```
 ---
-
-# 44. Application Lifecycle
-
+74. Implementation Dependency Order
+The recommended implementation sequence is:
 ```text
-Start Application
-       ↓
-Resolve App Data Directory
-       ↓
-Initialize SQLite
-       ↓
-Run migrations
-       ↓
-Load Settings
-       ↓
-Initialize Dependencies
-       ↓
-Open Main Window
-       ↓
-User Operations
-       ↓
-Graceful Shutdown
-       ↓
-Flush/close DB
+0. Contract reconciliation
+        ↓
+1. Foundation corrections
+        ↓
+2. Numeric / Decimal policy
+        ↓
+3. Domain models
+        ↓
+4. Stage-aware validation
+        ↓
+5. Calculation engine
+        ↓
+6. Totals / round-off / tax summary
+        ↓
+7. Golden fixtures
+        ↓
+8. SQLite + migrations
+        ↓
+9. Repositories
+        ↓
+10. Invoice numbering + FY
+        ↓
+11. Company / Customer services
+        ↓
+12. Invoice lifecycle + snapshots
+        ↓
+13. Early PDF spike
+        ↓
+14. PDF renderer
+        ↓
+15. PDF regression tests
+        ↓
+16. Early Windows print spike
+        ↓
+17. Composition root
+        ↓
+18. Customer UI
+        ↓
+19. Invoice UI
+        ↓
+20. Invoice history
+        ↓
+21. Dashboard
+        ↓
+22. Settings
+        ↓
+23. Backup / Restore
+        ↓
+24. Offline acceptance
+        ↓
+25. Windows packaging
+        ↓
+26. Final acceptance
 ```
-
-No cloud health checks or network initialization should exist.
-
+Tasks 12, 14, 19 and 23 should be decomposed into smaller subtasks before execution.
 ---
-
-# 45. Migration Strategy
-
-Even though SQLite is local, schema migration should be supported from the beginning.
-
-Use a simple schema version mechanism:
-
-```text
-schema_version
-```
-
-On startup:
-
-```text
-Current version
-     ↓
-Apply pending migrations
-     ↓
-Open application
-```
-
-Never overwrite a user's existing database merely because the application version changed.
-
+75. Quality Gates
+Use stage gates rather than measuring progress by checkbox count.
+Gate A — Contracts
+Requirements, rules and design agree.
+Gate B — Calculations
+Financial calculations pass independently.
+Gate C — Record Safety
+Persistence, finalization, numbering, snapshots and recovery work correctly.
+Gate D — Documents
+PDF renders correctly and Windows printing is proven.
+Gate E — User Workflow
+The complete desktop workflow works.
+Gate F — Release
+Clean Windows installation works offline and data recovery is proven.
+Do not move to the next dependent stage when the gate fails.
 ---
-
-# 46. Packaging Architecture
-
-Package the Python application as a desktop executable.
-
-A practical first target is Windows.
-
-Deployment should bundle:
-
-- Python runtime
-- PySide6
-- ReportLab
-- SQLite dependency
-- Application assets
-
-User data must live outside the executable so application updates do not destroy invoices.
-
-Conceptually:
-
+76. Definition of Ready
+A task is ready for implementation only when:
 ```text
-Application install directory
-        ≠
-User data directory
+Requirement exists
+Design exists
+Dependencies are complete
+Acceptance criteria exist
+Test strategy exists
+No unresolved blocking question
+Scope is clear
 ```
-
 ---
-
-# 47. Configuration vs User Data
-
-Separate:
-
-### Application installation
-
+77. Definition of Done
+A task is complete only when:
 ```text
-Program Files / application directory
+Code implemented
+Tests added where applicable
+Tests pass
+Lint/type checks pass
+Acceptance criteria demonstrated
+No unrelated changes
+Documentation updated when behavior changed
+Task status updated
 ```
-
-from:
-
-### User data
-
-```text
-User AppData directory
-├── invoices.db
-├── backups
-├── exports
-├── assets
-└── logs
-```
-
-This allows upgrading the application without replacing billing data.
-
+A checkbox alone is not evidence of completion.
 ---
-
-# 48. Architecture Decisions
-
-## Decision 1
-
-**Use PySide6 for the desktop UI.**
-
-Reason:
-
-- Mature Python desktop UI framework
-- Strong table/form support
-- Suitable for a business desktop application
-
-## Decision 2
-
-**Use SQLite for persistence.**
-
-Reason:
-
-- Local
-- Embedded
-- Transactional
-- No server
-- Appropriate for the intended scale
-
-## Decision 3
-
-**Use ReportLab for invoice PDFs.**
-
-Reason:
-
-- Deterministic programmatic layout
-- Strong table support
-- Image support
-- Suitable for A4 invoices
-
-## Decision 4
-
-**Use Decimal for money.**
-
-Reason:
-
-- Financial precision
-- Deterministic rounding
-
-## Decision 5
-
-**Use service/repository separation.**
-
-Reason:
-
-- Keeps UI thin
-- Easier testing
-- Avoids SQL/business rules in widgets
-
-## Decision 6
-
-**Treat finalized invoices as immutable billing records.**
-
-Reason:
-
-- Protects invoice history
-- Prevents accidental modification of historical documents
-
----
-
-# 49. Explicitly Rejected Architecture
-
-Do not build:
-
+78. Final Architectural Principle
+The application should remain deliberately simple.
+The complexity worth paying for is:
 ```text
-React frontend
-        ↓
-FastAPI backend
-        ↓
-PostgreSQL
-        ↓
-Cloud deployment
+Financial correctness
+Invoice immutability
+Safe numbering
+Historical snapshots
+Reliable backup/restore
+Accurate PDF output
+Good desktop UX
 ```
-
-Do not build:
-
+The complexity not worth paying for is:
 ```text
-Desktop UI
-   ↓
-REST API
-   ↓
-Remote database
+Cloud infrastructure
+Distributed systems
+Remote APIs
+Microservices
+Message queues
+Online synchronization
+Full ERP features
 ```
-
-Do not build:
-
+The final target is:
 ```text
-Invoice
-   ↓
-Message Queue
-   ↓
-PDF Worker
-```
-
-Do not build:
-
-```text
-Cloud storage
-Cloud sync
-Online GST API
-Remote authentication
-```
-
-None of these are required for the stated product scope.
-
----
-
-# 50. Kiro Development Architecture
-
-Use Kiro itself to enforce the engineering workflow.
-
-Recommended repository structure:
-
-```text
-.kiro/
-├── steering/
-│   ├── product-rules.md
-│   ├── architecture.md
-│   └── coding-standards.md
-│
-├── specs/
-│   └── invoice-generator/
-│       ├── requirements.md
-│       ├── design.md
-│       └── tasks.md
-│
-└── hooks/
-```
-
-Kiro's documented workflow supports Specs for structured requirements/design/tasks and Steering files for persistent project guidance. Hooks can automate actions such as tests, formatters and type checks after code changes. citeturn530514search0turn530514search3turn530514search4turn530514search7
-
-Recommended Kiro workflow:
-
-```text
-PRODUCT_REQUIREMENTS.md
-        ↓
-Kiro Spec
-        ↓
-requirements.md
-        ↓
-design.md
-        ↓
-tasks.md
-        ↓
-Implementation
-        ↓
-Tests
-        ↓
-Review
-```
-
----
-
-# 51. Kiro Steering Rules
-
-The project steering should explicitly tell the agent:
-
-```text
-1. This is a local desktop billing application.
-2. No cloud runtime dependency.
-3. No REST API.
-4. No remote database.
-5. PySide6 is the UI framework.
-6. SQLite is the persistent store.
-7. ReportLab is the PDF engine.
-8. Decimal must be used for money.
-9. UI must not contain business calculations.
-10. UI must not execute SQL directly.
-11. Finalized invoices are immutable.
-12. All invoice calculations must have automated tests.
-13. Sample invoices are golden regression fixtures.
-14. Do not add infrastructure without a confirmed requirement.
-```
-
-These rules should remain persistent across Kiro sessions.
-
----
-
-# 52. Implementation Dependency Order
-
-Build in this order:
-
-```text
-1. Project foundation
-        ↓
-2. Domain models
-        ↓
-3. Calculation engine
-        ↓
-4. SQLite repositories
-        ↓
-5. Invoice lifecycle
-        ↓
-6. PDF renderer
-        ↓
-7. Customer UI
-        ↓
-8. Invoice UI
-        ↓
-9. Invoice history
-        ↓
-10. Settings
-        ↓
-11. Backup/restore
-        ↓
-12. Printing
-        ↓
-13. Packaging
-```
-
-This order prevents the UI from becoming the place where business rules are accidentally designed.
-
----
-
-# 53. Non-Functional Requirements
-
-The architecture must provide:
-
-### Reliability
-
-- No loss of finalized invoice data during normal operation
-- Transactions for invoice finalization
-- Local backups
-
-### Correctness
-
-- Deterministic financial calculations
-- Reproducible PDF values
-- Stable invoice numbers
-
-### Maintainability
-
-- Small focused services
-- Repository abstraction
-- Clear separation of concerns
-
-### Performance
-
-- Responsive UI
-- Fast local searches
-- PDF generation within a few seconds for normal invoices
-
-### Offline Operation
-
-- No runtime network requirement
-
----
-
-# 54. Definition of Architectural Success
-
-The architecture is successful when:
-
-```text
-A business operator
-       ↓
-opens desktop application
-       ↓
-selects customer
-       ↓
-enters mould/job machining details
-       ↓
-enters quantity/rate
-       ↓
-system calculates GST
-       ↓
-invoice is finalized
-       ↓
-data is safely stored locally
-       ↓
-professional PDF is generated
-       ↓
-PDF is previewed / printed / exported
-```
-
-and every step can be tested independently.
-
----
-
-# 55. Final Architecture Summary
-
-```text
-                    KIRO
-          (Development Environment)
-                       │
-                       ▼
-              ┌─────────────────┐
-              │ Python Desktop  │
-              │   Application   │
-              └────────┬────────┘
-                       │
-           ┌───────────┴───────────┐
-           │                       │
-           ▼                       ▼
-      ┌─────────┐            ┌─────────────┐
-      │ PySide6 │            │ Application │
-      │   UI    │───────────▶│  Services   │
-      └─────────┘            └──────┬──────┘
+                  KIRO
+          Development / AI Tool
+                    │
+                    ▼
+             Python Desktop App
+                    │
+        ┌───────────┴───────────┐
+        │                       │
+        ▼                       ▼
+     PySide6              Application Services
+                                │
+                    ┌───────────┴───────────┐
+                    │                       │
+                    ▼                       ▼
+               Domain Rules           Infrastructure
+                    │                       │
+                    │                ┌──────┼───────┐
+                    │                │      │       │
+                    ▼                ▼      ▼       ▼
+             Decimal GST          SQLite  PDF     Printer
+                Engine              │    ReportLab   OS
                                     │
-                 ┌──────────────────┼─────────────────┐
-                 │                  │                 │
-                 ▼                  ▼                 ▼
-            Domain Rules       Repositories       PDF/Print
-                 │                  │                 │
-                 │                  ▼                 ▼
-                 │              SQLite DB        ReportLab / OS
-                 │
-                 ▼
-          Decimal GST Engine
-
-                       ↓
-                 Local File System
-              ┌────────┼─────────┐
-              │        │         │
-            PDFs     Backups    Assets
+                                    ▼
+                              Local Files
+                           ┌──────┼──────┐
+                           │      │      │
+                         PDFs  Backups Assets
 ```
-
-This architecture is intentionally **boring**. That is a good thing for billing software: the important engineering work is correctness, invoice immutability, tax calculation, PDF accuracy, persistence and recovery—not distributed infrastructure.
+The architecture is intentionally boring.
+For billing software, that is the correct outcome: make the financial rules explicit, keep the state safe, keep the PDF deterministic, and avoid infrastructure that does not solve a real business problem.

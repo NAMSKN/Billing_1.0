@@ -1,48 +1,147 @@
 # PDF_LAYOUT
+
 ## Professional Invoice PDF Layout for Mould / Mould-Machining Business
 
-**Document Version:** 1.0  
-**Status:** PDF Layout Baseline  
+**Document Version:** 2.0  
+**Status:** Implementation Baseline  
 **Related Documents:** `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `INVOICE_RULES.md`
 
 ---
 
 # 1. Purpose
 
-This document defines the visual and structural requirements for the generated invoice PDF.
+This document defines the visual, structural, pagination, and rendering requirements for the generated invoice PDF.
 
 The design is based on:
 
-- The two actual Tally invoices used for mould/machining work.
+- The actual Tally invoices used for mould/machining work.
 - The Tata Motors sample invoice used as a visual reference.
 
-The goal is not to copy either document exactly.
+The goal is **not** to copy either document.
 
-The goal is to preserve the useful billing/accounting information of the Tally invoices while adopting the cleaner visual hierarchy of the reference design.
+The goal is to retain the useful accounting and GST information from the Tally invoices while applying the cleaner visual hierarchy of the reference design and preserving the technical information important to a mould/machining business.
 
----
-
-# 2. Design Principles
-
-The final invoice must be:
-
-- Professional
-- Clean
-- Easy to scan
-- Printer-friendly
-- Suitable for black-and-white printing
-- Suitable for digital PDF sharing
-- Technically readable
-- Tax-information friendly
-- Suitable for mould/machining businesses
-
-Do not make the document overly decorative.
-
-The invoice should look like a serious business document.
+This document describes **presentation only**. It must not redefine GST rules, calculations, numbering, lifecycle, or persistence rules owned by the other project specifications.
 
 ---
 
-# 3. Page Format
+# 2. Non-Negotiable Rendering Principles
+
+The invoice must be:
+
+- Professional and business-like.
+- Clean and easy to scan.
+- Printer-friendly.
+- Suitable for grayscale / black-and-white printing.
+- Suitable for PDF sharing.
+- Legible at normal A4 print scale.
+- Clear about GST and invoice identity.
+- Clear about mould/job technical information.
+- Stable when optional fields are absent.
+- Stable when descriptions, addresses, or notes are long.
+- Deterministic: the same finalized invoice snapshot and template version should render the same content.
+
+Do not make the invoice overly decorative.
+
+The design must communicate:
+
+> What was billed → for whom → under which invoice → how much → how the amount was taxed.
+
+---
+
+# 3. Rendering Contract
+
+The PDF renderer receives an **already finalized invoice document representation**.
+
+Conceptually:
+
+```text
+Finalized Invoice Snapshot
+        |
+        v
+InvoiceRenderModel / PDF DTO
+        |
+        v
+PDF Renderer
+        |
+        v
+A4 PDF
+```
+
+The renderer:
+
+- MUST NOT query SQLite directly.
+- MUST NOT recalculate invoice totals.
+- MUST NOT determine GST treatment.
+- MUST NOT allocate invoice numbers.
+- MUST NOT mutate the invoice.
+- MUST render exactly the values supplied by the application layer.
+
+The render model should contain all information required to render the document, including:
+
+- company snapshot
+- customer snapshot
+- consignee snapshot
+- invoice metadata
+- references/logistics
+- line items
+- tax summary
+- totals
+- amount in words
+- payment status
+- bank details
+- UPI details / QR source
+- notes
+- terms
+- declaration
+- signature/stamp asset reference
+- logo asset reference
+- invoice template version
+- page/render settings
+
+No presentation component should reach into repository or database code.
+
+---
+
+# 4. Document Identity and Historical Fidelity
+
+A finalized invoice PDF represents the finalized invoice snapshot.
+
+Therefore, the PDF must use the historical values stored on the invoice and must not silently pull current master data.
+
+For example, changing the company's:
+
+- address
+- GSTIN
+- bank account
+- logo
+- signature
+- UPI ID
+- declaration text
+
+must not change an already-finalized invoice's historical meaning.
+
+Assets and visual templates may be versioned independently.
+
+The finalized invoice should therefore carry enough information to identify:
+
+```text
+Invoice Number
+Invoice Date
+Invoice Template Version
+Company Snapshot
+Customer Snapshot
+Consignee Snapshot
+Bank/UPI Snapshot
+Line Items
+Tax Summary
+Totals
+Payment/Terms Snapshot
+```
+
+---
+
+# 5. Page Format
 
 Default:
 
@@ -51,172 +150,170 @@ Paper: A4
 Orientation: Portrait
 ```
 
-The layout should normally fit on one page for ordinary invoices.
+Use a normal printer-safe content area.
 
-For invoices containing many line items:
-
-- Continue naturally onto additional pages.
-- Repeat the line-item header on subsequent pages.
-- Keep totals and signature sections together where possible.
-- Never compress text to an unreadable size merely to force one page.
-
----
-
-# 4. Margin Guidelines
-
-Recommended starting point:
+Recommended starting margins:
 
 ```text
-Top:    ~12–15 mm
-Bottom: ~12–15 mm
-Left:   ~12–15 mm
-Right:  ~12–15 mm
+Top:    12–15 mm
+Bottom: 12–15 mm
+Left:   12–15 mm
+Right:  12–15 mm
 ```
 
-Exact values may be adjusted during visual refinement.
+Exact measurements may be tuned during implementation and visual testing.
 
-Maintain a safe printable area.
+Do not depend on edge-to-edge printing.
+
+The default design should fit ordinary invoices on one page where reasonably possible.
+
+Invoices with many rows must flow to additional pages naturally rather than shrinking into unreadable text.
 
 ---
 
-# 5. Overall Page Structure
+# 6. Page Architecture
 
-Recommended vertical order:
+Preferred vertical order:
 
 ```text
-┌────────────────────────────────────────────────────┐
-│ HEADER / BRANDING                                  │
-├────────────────────────────────────────────────────┤
-│ INVOICE METADATA                                   │
-├──────────────────────┬─────────────────────────────┤
-│ BILL TO              │ SHIP TO / CONSIGNEE         │
-├──────────────────────┴─────────────────────────────┤
-│ REFERENCES / LOGISTICS                              │
-├────────────────────────────────────────────────────┤
-│ MOULD / MACHINING LINE ITEMS                       │
-├────────────────────────────────────────────────────┤
-│ TAX SUMMARY                                         │
-├────────────────────────────────────────────────────┤
-│ TOTALS / AMOUNT IN WORDS                           │
-├──────────────────────────┬─────────────────────────┤
-│ PAYMENT / BANK DETAILS   │ QR / PAYMENT           │
-├──────────────────────────┴─────────────────────────┤
-│ NOTES / TERMS                                      │
-├────────────────────────────────────────────────────┤
-│ DECLARATION / SIGNATURE                            │
-├────────────────────────────────────────────────────┤
-│ FOOTER / PAGE NUMBER                               │
-└────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ HEADER / BRANDING                                        │
+├──────────────────────────────────────────────────────────┤
+│ INVOICE IDENTITY / METADATA                              │
+├────────────────────────────┬─────────────────────────────┤
+│ BILL TO                    │ SHIP TO / CONSIGNEE         │
+├────────────────────────────┴─────────────────────────────┤
+│ REFERENCES / LOGISTICS                                    │
+├──────────────────────────────────────────────────────────┤
+│ MOULD / MACHINING LINE ITEMS                              │
+├──────────────────────────────────────────────────────────┤
+│ TAX SUMMARY                                               │
+├──────────────────────────────────────────────────────────┤
+│ TOTALS + AMOUNT IN WORDS                                  │
+├────────────────────────────┬─────────────────────────────┤
+│ PAYMENT / BANK DETAILS     │ PAYMENT / QR                │
+├────────────────────────────┴─────────────────────────────┤
+│ NOTES / TERMS                                             │
+├──────────────────────────────────────────────────────────┤
+│ DECLARATION / SIGNATURE                                   │
+├──────────────────────────────────────────────────────────┤
+│ FOOTER / PAGE NUMBER                                      │
+└──────────────────────────────────────────────────────────┘
 ```
+
+This is a logical structure, not a requirement that every section be a heavy bordered box.
 
 ---
 
-# 6. Header
+# 7. Header and Branding
 
-The header should be the strongest branding area.
+The header is the primary identity area.
 
 Recommended arrangement:
 
-```text
-LEFT
-Company Logo
-Company Name
-Address
-GSTIN
-Phone / Email
+### Left side
 
-RIGHT
-TAX INVOICE
-ORIGINAL FOR RECIPIENT
-Invoice Number
-Invoice Date
-Due Date
-Place of Supply
-```
+- Company logo.
+- Company name.
+- Address.
+- GSTIN.
+- State / state code.
+- Phone.
+- Email.
 
-The company name should be visually prominent.
+### Right side
 
-The invoice title should be immediately recognizable.
+- `TAX INVOICE`
+- `ORIGINAL FOR RECIPIENT` when applicable.
+- Invoice number.
+- Invoice date.
+- Due date when applicable.
+- Place of supply when applicable.
 
----
+The company name should be prominent.
 
-# 7. Company Branding
+`TAX INVOICE` should be immediately recognizable.
 
-Support:
+Do not allow the logo to dominate the document.
 
-- Logo
-- Company name
-- Address
-- GSTIN
-- State
-- Email
-- Phone
+Logo requirements:
 
-Logo:
-
-- Should maintain aspect ratio.
-- Should not dominate the page.
-- Should not interfere with invoice information.
-
-A monochrome-friendly version may be used where needed.
+- Preserve aspect ratio.
+- Do not upscale excessively.
+- Do not distort.
+- Support absence of logo without leaving a large empty placeholder.
+- Prefer a monochrome-friendly asset where appropriate.
 
 ---
 
-# 8. Invoice Metadata Box
+# 8. Invoice Metadata
 
-A compact box should show:
+The metadata area should make the invoice identity discoverable within seconds.
+
+Minimum core identity:
 
 ```text
 Invoice No.
 Invoice Date
+```
+
+Conditional fields may include:
+
+```text
 Due Date
 Place of Supply
 Payment Terms
 ```
 
-Optional fields should only appear when values are available.
+Only render fields that are present and applicable.
 
-Do not render empty placeholders such as:
+Do not produce awkward blank labels such as:
 
 ```text
 Due Date:
 Place of Supply:
+Vehicle No:
+PO No:
 ```
 
-when the information is not provided, unless the design explicitly requires fixed alignment.
+when the values are absent.
+
+The visual layout may use a fixed grid for consistency, but unused slots must collapse cleanly.
 
 ---
 
-# 9. Bill To / Ship To
+# 9. Bill To and Ship To / Consignee
 
-Use two visually distinct sections.
+Use two clearly separated areas.
 
 ## Bill To
 
-Show:
+Render, when available:
 
-- Customer name
-- Billing address
-- GSTIN
-- State
-- State code
-- Phone/email when useful
+- Customer name.
+- Billing address.
+- GSTIN.
+- State.
+- State code.
+- Phone/email when useful.
 
 ## Ship To / Consignee
 
-Show:
+Render, when applicable:
 
-- Consignee/customer name
-- Shipping address
-- GSTIN where relevant
-- State
-- Godown address when applicable
+- Consignee name.
+- Shipping address.
+- GSTIN where relevant.
+- State.
+- Godown / delivery address where applicable.
 
-When Bill To and Ship To are identical, the UI may still show both sections because the Tally source structure explicitly distinguishes them.
+The distinction between billing party and consignee must remain clear because it is part of the source invoice structure.
+
+When the two are identical, duplication is acceptable if required by the source/business format, but avoid visually wasteful repetition.
 
 ---
 
-# 10. Reference / Logistics Section
+# 10. References and Logistics
 
 Use a compact grid.
 
@@ -237,19 +334,26 @@ Terms of Delivery
 Other References
 ```
 
-Do not give this area more visual weight than the customer and invoice sections.
+Only populated fields should normally render.
 
-Only render populated values.
+The section must remain secondary to:
+
+1. invoice identity
+2. customer
+3. line items
+4. totals
+
+Long reference values must wrap rather than clip.
 
 ---
 
-# 11. Mould / Machining Line-Item Section
+# 11. Line-Item Design
 
-This is the most important design area for this business.
+The line-item table is the most important business-specific section.
 
-The table should prioritize technical/job information.
+It must prioritize **technical/job readability**, not merely generic retail-invoice appearance.
 
-Recommended columns:
+Preferred columns:
 
 ```text
 #
@@ -264,13 +368,29 @@ DISCOUNT
 AMOUNT
 ```
 
-Depending on available horizontal space, `JOB / MOULD` and `OPERATION` may be combined, but technical readability must remain.
+Where A4 width becomes too constrained, `JOB / MOULD` and `OPERATION` may be combined into a structured cell:
+
+```text
+DT-663
+PUNCH GUN DRILLING
+```
+
+Do not combine away technical information merely to make the table narrower.
+
+The exact column set may vary according to the invoice data and applicable business rules, but:
+
+- quantity must remain clear
+- unit must remain clear
+- rate must remain clear
+- amount must remain clear
+- HSN/SAC must remain clear where applicable
+- technical description must remain complete
 
 ---
 
-# 12. Example Line Item
+# 12. Technical Line-Item Structure
 
-A line should be visually capable of representing:
+A structured row should be capable of displaying:
 
 ```text
 Job/Mould: DT-663
@@ -281,7 +401,17 @@ Unit: NOS
 HSN/SAC: 998898
 ```
 
-Avoid rendering this as one cramped sentence when structured data is available.
+A preferred visual treatment is:
+
+```text
+DT-663
+PUNCH GUN DRILLING
+DRILL DIA 9X307MM DEEP
+```
+
+with the numerical/commercial fields aligned independently.
+
+Do not collapse everything into one cramped sentence when structured data is available.
 
 ---
 
@@ -289,148 +419,167 @@ Avoid rendering this as one cramped sentence when structured data is available.
 
 The PDF must preserve:
 
-- Mould/job reference
-- Operation
-- Technical specification
-- Dimensions
-- Quantity
-- Unit
+- mould/job reference
+- operation
+- specification
+- dimensions
+- quantity
+- unit
+- other configured technical description
 
-Long descriptions should wrap naturally.
-
-Do not clip technical text.
-
-Example:
+Examples such as:
 
 ```text
 6 SIDE MACHINING
 510 × 430 × 130
 ```
 
-should remain clearly legible.
+must remain readable.
+
+Text must wrap naturally.
+
+Never clip a technical description.
+
+Never replace a long description with an ellipsis in the final invoice.
 
 ---
 
-# 14. Table Typography
+# 14. Typography
 
-The line-item header should:
+Use a professional sans-serif font.
 
-- Be bold
-- Have strong separation from body rows
-- Remain readable in grayscale
-
-Body text should be compact but not tiny.
-
-Recommended starting range:
+Suggested starting hierarchy:
 
 ```text
-Body: 8–9 pt
-Header: 8–9 pt bold
+Company Name       15–18 pt
+TAX INVOICE        15–18 pt
+Section Heading    9–10 pt bold
+Table Header       8–9 pt bold
+Table Body         8–9 pt
+Legal/Terms        7.5–8.5 pt
+Footer             7–8 pt
 ```
 
-Final sizes should be validated on a real A4 print.
+These are starting values, not absolute requirements.
+
+The final size must be validated on a real A4 page.
+
+Do not shrink the entire document globally to make it fit.
+
+When content is long, prefer:
+
+1. wrapping
+2. increased row height
+3. natural pagination
+
+before reducing font size.
 
 ---
 
-# 15. Column Alignment
+# 15. Alignment
 
-Use:
+Use consistent semantic alignment.
 
 ```text
-Text:
-left aligned
-
-Quantity:
-right aligned
-
-Rate:
-right aligned
-
-Discount:
-right aligned
-
-Amounts:
-right aligned
-
-HSN/SAC:
-center or left aligned
-
-Unit:
-center aligned
+Text descriptions: left
+Quantity:           right
+Rate:               right
+Discount:           right
+Amounts:            right
+HSN/SAC:            center or left
+Unit:               center
+Rates/percentages:  right
 ```
 
-Currency values should align by decimal place as much as practical.
+Currency values should align by decimal place as far as practical.
+
+Do not center large amounts or descriptions merely for decoration.
 
 ---
 
-# 16. Line Item Amount
+# 16. Currency Presentation
 
-The final amount column should be visually clear.
+Use one consistent INR presentation across the document.
 
-The user should be able to identify the amount for each service without scanning the entire row.
+Recommended:
 
-Avoid excessive currency symbols in every cell if they make the table noisy; use a clear INR convention in the table/header and totals.
+```text
+₹12,280.00
+₹1,105.20
+```
+
+Avoid unnecessary repetition of currency symbols where the table heading already establishes the currency.
+
+Do not allow negative round-off values to become ambiguous.
+
+Example:
+
+```text
+Round Off       -₹0.40
+```
+
+Grand total must be explicit.
 
 ---
 
 # 17. Tax Summary
 
-After the main line-item table, provide a compact tax summary.
+Provide a compact tax summary after the line-item table.
 
-Recommended structure:
-
-```text
-HSN/SAC | Taxable Value | CGST | SGST | IGST | Total Tax
-```
-
-Or, where space permits:
+Normal intra-state presentation:
 
 ```text
-HSN/SAC
-Taxable Value
-CGST Rate
-CGST Amount
-SGST Rate
-SGST Amount
-IGST Rate
-IGST Amount
-Total Tax
+HSN/SAC | Taxable Value | CGST Rate | CGST | SGST Rate | SGST | Total Tax
 ```
 
-The final implementation should adapt column count according to the applicable tax mode.
+Normal inter-state presentation:
 
-Do not show irrelevant zero-value tax columns if doing so would unnecessarily clutter the invoice.
+```text
+HSN/SAC | Taxable Value | IGST Rate | IGST | Total Tax
+```
+
+The final column set must reflect the actual finalized tax treatment.
+
+Do not show irrelevant zero-value tax columns merely to fill space.
+
+The summary grouping must represent the application's finalized tax summary; the renderer must not regroup or recalculate it.
+
+The tax summary grouping key belongs to the billing rules and is not a layout decision.
 
 ---
 
 # 18. Totals Block
 
-The totals should be visually prominent.
+The totals area must be visually prominent.
 
-Recommended alignment:
+Preferred structure:
 
 ```text
-                       Taxable Amount   ₹xx,xxx.xx
-                       CGST             ₹x,xxx.xx
-                       SGST             ₹x,xxx.xx
-                       IGST             ₹x,xxx.xx
-                       Round Off          ₹xx.xx
-                       -------------------------
-                       GRAND TOTAL      ₹xx,xxx.xx
+Taxable Amount        ₹xx,xxx.xx
+CGST                  ₹x,xxx.xx
+SGST                  ₹x,xxx.xx
+IGST                  ₹x,xxx.xx
+Round Off             ₹xx.xx
+--------------------------------
+GRAND TOTAL           ₹xx,xxx.xx
 ```
 
-Grand Total:
+Only applicable tax lines should be shown.
 
-- Largest monetary value on the page
-- Bold
-- Strong border or background distinction
-- Easy to locate immediately
+Grand Total must be:
+
+- the strongest monetary value
+- bold
+- visually separated
+- immediately discoverable
+
+Do not let a payment-status badge compete visually with the Grand Total.
 
 ---
 
 # 19. Amount in Words
 
-Place amount in words below or beside the total block.
+Place amount in words directly below or adjacent to the totals.
 
 Example:
 
@@ -439,22 +588,26 @@ Amount in Words:
 INR Fourteen Thousand Four Hundred Ninety Only
 ```
 
-And:
+Where configured:
 
 ```text
 Tax Amount in Words:
 INR Two Thousand Two Hundred Ten and Forty Paise Only
 ```
 
-The text should wrap without affecting the alignment of the grand total.
+The wording must come from the finalized calculation/render model.
+
+Do not perform an independent amount calculation in the renderer.
+
+Long amount-in-words text must wrap without moving or obscuring the grand total.
 
 ---
 
-# 20. Payment Section
+# 20. Payment and Bank Details
 
-The payment area may contain:
+Payment information should be visually separated from accounting totals.
 
-### Bank Details
+Bank details may contain:
 
 ```text
 Bank Name
@@ -463,22 +616,28 @@ Branch
 IFSC
 ```
 
-### UPI
+UPI may contain:
 
 ```text
 UPI ID
-UPI QR Code
+UPI QR
 ```
 
-QR should only appear when configured.
+QR requirements:
 
-Do not show a blank QR placeholder.
+- Render only when configured and available.
+- Preserve readability.
+- Maintain a quiet margin around the code.
+- Do not stretch the QR disproportionately.
+- Do not render an empty QR box.
+
+QR content must be derived from the finalized configured payment data.
 
 ---
 
 # 21. Payment Status
 
-Payment status may be shown as a small visual indicator:
+Supported visual status:
 
 ```text
 UNPAID
@@ -486,9 +645,17 @@ PARTIALLY PAID
 PAID
 ```
 
-The status must be visually secondary to the invoice total.
+Payment status should be subtle.
 
-Do not make an "Amount Paid" badge look like the grand total.
+Recommended placement:
+
+- payment section
+- metadata area
+- or a small badge adjacent to payment information
+
+It must never resemble the Grand Total.
+
+A status badge does not by itself imply a reliable historical amount-paid balance unless the application's payment model supports that.
 
 ---
 
@@ -496,45 +663,50 @@ Do not make an "Amount Paid" badge look like the grand total.
 
 Notes may contain:
 
-- Job notes
-- Delivery notes
-- Special instructions
-- Inspection information
+- job notes
+- delivery notes
+- special instructions
+- inspection information
 
 Use a compact block.
 
-Heading:
+Example:
 
 ```text
 Notes
+Additional machining completed as instructed.
 ```
 
-Do not give notes excessive space unless content requires it.
+Notes should grow with content but should not consume excessive space when empty or short.
+
+Do not reserve a large blank notes box by default.
 
 ---
 
-# 23. Terms & Conditions
+# 23. Terms and Conditions
 
-Terms should be placed toward the bottom.
+Place Terms & Conditions toward the lower portion of the invoice.
 
-Use a smaller but readable font.
+Use:
 
-Example structure:
+- smaller but readable type
+- numbered lines where appropriate
+- consistent spacing
 
-```text
-Terms & Conditions
-1. ...
-2. ...
-3. ...
-```
+Do not allow legal text to overpower:
 
-Do not let legal text overpower the invoice totals.
+- invoice identity
+- line items
+- tax
+- grand total
+
+Terms are configuration/business content and should not be hard-coded into rendering logic.
 
 ---
 
 # 24. Declaration
 
-Provide a compact declaration block.
+Provide a compact declaration area near the bottom.
 
 Example concept:
 
@@ -545,13 +717,15 @@ goods/services described and that all particulars are true
 and correct.
 ```
 
-Exact wording should come from configured business settings.
+The exact declaration text must come from configured business settings or the finalized invoice snapshot.
+
+Do not hard-code a legal declaration into the PDF renderer.
 
 ---
 
-# 25. Signature Area
+# 25. Signature / Authorization
 
-Recommended right-aligned structure:
+Recommended structure:
 
 ```text
 For SUNTECH ENTERPRISES
@@ -561,11 +735,15 @@ For SUNTECH ENTERPRISES
 Authorized Signatory
 ```
 
-If a signature/stamp image is configured:
+Signature/stamp image requirements:
 
 - Preserve aspect ratio.
 - Do not upscale excessively.
-- Keep it clearly separated from other footer text.
+- Keep enough whitespace around the image.
+- Do not let it overlap declaration or footer.
+- Support invoices where no image is configured.
+
+Historical finalized invoices should reference the versioned asset needed to reproduce their appearance.
 
 ---
 
@@ -578,7 +756,17 @@ This is a Computer Generated Invoice
 Page 1 of 1
 ```
 
-The page number should update automatically for multi-page invoices.
+For multi-page output:
+
+```text
+Page 1 of 3
+Page 2 of 3
+Page 3 of 3
+```
+
+Page numbering must be generated automatically.
+
+Footer should be visually quiet.
 
 ---
 
@@ -588,68 +776,81 @@ Use borders selectively.
 
 Recommended:
 
-- Strong outer document structure
-- Clear section separators
-- Table borders where useful
-- Light internal lines
-- Stronger line around Grand Total
+- clear outer document boundary or structure
+- clear section separators
+- useful table borders
+- light internal rules
+- stronger distinction around Grand Total
 
-Avoid making every small element look like a boxed form.
+Avoid making every field look like a boxed form.
 
-The Tally invoices use dense grid lines; the improved version should reduce unnecessary visual noise while preserving structure.
+The source Tally documents are denser. The improved layout should retain their structure while reducing unnecessary visual noise.
 
 ---
 
 # 28. Color
 
-The invoice must remain understandable when printed in grayscale.
+The invoice must remain fully understandable in grayscale.
 
-Use color only for subtle hierarchy, such as:
+Color may be used only for subtle hierarchy, such as:
 
-- Header accent
-- Section heading
-- Grand total highlight
-- Payment status
+- header accent
+- section heading
+- Grand Total highlight
+- payment status
 
-Do not rely on color alone to communicate required information.
+Do not rely on color alone to communicate:
 
-A pure black-and-white print should remain fully understandable.
+- paid/unpaid state
+- taxable vs tax information
+- required invoice identity
+- errors or warnings
 
----
-
-# 29. Typography
-
-Use a professional sans-serif font for most content.
-
-Recommended hierarchy:
-
-```text
-Company Name      — largest
-TAX INVOICE       — very prominent
-Section headings  — bold
-Table headings    — bold
-Body              — regular
-Legal text        — smaller
-Footer            — smallest
-```
-
-Avoid too many font families.
-
-Use consistent capitalization.
+A black-and-white print must preserve the same information hierarchy.
 
 ---
 
-# 30. Whitespace
+# 29. Whitespace
 
 Whitespace should separate logical sections.
 
-The design should not:
+The layout must not:
 
 - cram every field together
 - fill every blank area
-- push the totals to an awkward location
+- push totals into an awkward position
+- create very large empty blocks when optional fields are absent
 
-At the same time, excessive whitespace should not push important information unnecessarily onto a second page.
+At the same time, excessive whitespace must not force ordinary invoices onto a second page unnecessarily.
+
+Use vertical space deliberately around:
+
+- header
+- party information
+- line-item table
+- totals
+- signature
+
+---
+
+# 30. Optional Field Collapse Rules
+
+Optional sections collapse when there is no content.
+
+Examples:
+
+```text
+No PO data        → no PO row
+No vehicle        → no vehicle row
+No due date       → no due-date field
+No UPI            → no QR/payment box
+No signature      → no blank signature image area
+No notes          → no large notes area
+```
+
+Do not render empty labels simply because the source format has the field.
+
+Conditional content must not produce broken borders, excessive whitespace, or orphan headings.
 
 ---
 
@@ -657,26 +858,46 @@ At the same time, excessive whitespace should not push important information unn
 
 When an invoice exceeds one page:
 
-1. Repeat the line-item table header.
-2. Continue line items naturally.
-3. Do not split a row across pages when avoidable.
-4. Keep tax summary together where possible.
-5. Keep grand total visible and intact.
-6. Put signature/declaration on the final page.
-7. Show page number on every page.
+1. Repeat the line-item header on every line-item continuation page.
+2. Continue rows naturally.
+3. Avoid splitting a row across pages when the PDF engine can prevent it reasonably.
+4. Do not split technical content in a way that loses context.
+5. Keep the tax summary together where practical.
+6. Keep Grand Total intact.
+7. Keep declaration and signature on the final page.
+8. Show page numbering on every page.
+9. Do not place a section heading at the bottom of a page without enough content below it.
+10. Never resolve overflow by making the PDF unreadably small.
+
+If the implementation cannot keep the signature/declaration together on the final page, it must at minimum ensure both remain complete and ordered correctly.
 
 ---
 
-# 32. Long Technical Descriptions
+# 32. Long Technical Descriptions and Long Content
 
-For long mould specifications:
+The renderer must handle:
 
-- Wrap text.
-- Increase row height automatically.
-- Preserve all content.
-- Do not reduce font size below the minimum readable threshold merely to fit.
+- long mould/job descriptions
+- long operation names
+- long specifications
+- long customer names
+- long addresses
+- long PO/reference values
+- long notes
+- long terms
+- unusual characters
+- multiple line items
 
-If necessary, split:
+Rules:
+
+- wrap text
+- increase row/section height
+- preserve all content
+- keep semantic grouping
+- never clip silently
+- never replace final content with `...`
+
+For a technical row, stacked content is acceptable:
 
 ```text
 Operation
@@ -684,38 +905,46 @@ Specification
 Additional Description
 ```
 
-into stacked content inside the same table cell.
+within one cell.
 
 ---
 
-# 33. Empty Fields
+# 33. Special Characters and Typography Safety
 
-Do not print empty labels unless the design specifically requires them for alignment.
-
-Bad:
+The renderer must correctly handle at least:
 
 ```text
-PO No.:
-PO Date:
-Vehicle No.:
+₹
+×
+&
+<
+>
+-
+/
+()
+.
+,
 ```
 
-when all are empty.
-
-Prefer:
+Examples:
 
 ```text
-PO No.  BMSS/L/070/26-27
-Vehicle MH48CQ5748
+510 × 430 × 130
+R&D machining
+<special instruction>
 ```
 
-only when populated.
+The PDF must preserve text as selectable text where the chosen rendering method permits it.
+
+Do not rely on unsupported font glyphs.
+
+The selected font must contain the required characters, especially INR `₹` and multiplication `×`.
 
 ---
 
-# 34. Invoice 043 Visual Test
+# 34. Invoice 043 Visual Regression
 
-The PDF layout must cleanly represent the source information:
+The layout must be able to represent the following source information clearly:
 
 ```text
 Customer:
@@ -755,13 +984,13 @@ Grand Total:
 ₹14,490.00
 ```
 
-The technical information must be immediately understandable.
+The aggregate values are regression targets. The renderer must display the finalized values supplied by the calculation/lifecycle layer.
 
 ---
 
-# 35. Invoice 089 Visual Test
+# 35. Invoice 089 Visual Regression
 
-The PDF layout must cleanly represent:
+The layout must be able to represent:
 
 ```text
 Customer:
@@ -804,73 +1033,61 @@ Grand Total:
 ₹9,832.00
 ```
 
+As with Invoice 043, these values should be treated as regression targets for the finalized document representation.
+
 ---
 
-# 36. Reference Image Design Influence
+# 36. Reference Image Influence
 
-The Tata reference image should influence:
+The Tata reference design may influence:
 
-- Stronger hierarchy
-- Cleaner metadata block
-- More prominent total
-- Clear customer section
-- Clear payment section
+- stronger visual hierarchy
+- cleaner metadata
+- prominent total
+- clearer customer section
+- cleaner payment section
 - QR placement
-- Notes
-- Terms
-- Signature treatment
+- notes
+- terms
+- signature treatment
 
-It must NOT introduce unrelated Tata branding or automotive-specific content.
+It must **not** introduce unrelated:
+
+- Tata branding
+- automotive-specific content
+- labels that have no meaning for this business
+
+The reference is a visual influence, not a source of billing rules.
 
 ---
 
-# 37. Tally Design Influence
+# 37. Tally Influence
 
-The Tally invoices should influence:
+The Tally source invoices influence the PDF's information architecture, especially:
 
 - GST information
-- HSN/SAC presentation
-- Tax summary
-- Declaration
-- Bank details
-- Invoice references
-- Consignee/buyer distinction
-- Mould/machining technical information
-- Amount in words
-- Computer-generated invoice footer
+- HSN/SAC
+- tax summary
+- declaration
+- bank details
+- invoice references
+- consignee/buyer distinction
+- mould/machining technical information
+- amount in words
+- computer-generated invoice footer
+
+The improved PDF should not become a visual copy of Tally.
 
 ---
 
-# 38. PDF Data Source
+# 38. Renderer Component Structure
 
-The PDF renderer must receive an already finalized/calculated invoice representation.
-
-Conceptually:
-
-```text
-Stored Invoice
-     ↓
-Invoice DTO / View Model
-     ↓
-PDF Renderer
-     ↓
-A4 PDF
-```
-
-The renderer must not query the database directly for random fields.
-
-The application layer should prepare the document data.
-
----
-
-# 39. Visual Component Structure
-
-Recommended renderer components:
+Recommended focused components:
 
 ```text
 InvoiceRenderer
 ├── HeaderRenderer
-├── InvoiceMetadataRenderer
+├── MetadataRenderer
 ├── PartyDetailsRenderer
 ├── ReferenceDetailsRenderer
 ├── LineItemsRenderer
@@ -885,126 +1102,268 @@ InvoiceRenderer
 └── FooterRenderer
 ```
 
-Each component should have a focused responsibility.
+Components should own presentation only.
+
+Shared formatting helpers may handle:
+
+- money formatting
+- date formatting
+- text wrapping
+- conditional field rendering
+- page numbering
+- asset loading
+
+Business calculation logic must stay outside these components.
 
 ---
 
-# 40. PDF Quality Rules
+# 39. ReportLab / Layout-Specific Guidance
+
+The implementation is expected to use ReportLab.
+
+Prefer layout primitives that support natural flow and pagination, such as:
+
+- `BaseDocTemplate`
+- `PageTemplate`
+- `Frame`
+- `Paragraph`
+- `Table`
+- `TableStyle`
+- `KeepTogether`
+- `PageBreak`
+- `KeepInFrame` where appropriate
+
+Avoid a giant canvas routine with manually hard-coded `y` coordinates for every field.
+
+Absolute positioning is acceptable for small stable elements such as:
+
+- a fixed logo area
+- signature image area
+- page footer elements
+
+but the main invoice body should use flowable layout so long content and multi-page invoices remain robust.
+
+---
+
+# 40. PDF Quality and Integrity Checks
 
 Every generated PDF must be checked for:
 
-- No clipped text
-- No overlapping sections
-- No broken table borders
-- Correct page count
-- Correct invoice number
-- Correct customer
-- Correct line-item values
-- Correct tax
-- Correct round-off
-- Correct grand total
-- Correct amount in words
-- Correct logo rendering
-- Correct QR rendering when enabled
-- Correct signature rendering when enabled
+### Content correctness
+
+- invoice number
+- invoice date
+- customer
+- consignee
+- line-item values
+- HSN/SAC
+- taxable value
+- tax amounts/rates as applicable
+- round-off
+- grand total
+- amount in words
+
+### Layout correctness
+
+- no clipped text
+- no overlap
+- no broken borders
+- no orphaned headings
+- correct page count
+- repeated line-item header on continuation pages
+- complete final-page signature/declaration
+
+### Asset correctness
+
+- correct logo
+- correct signature/stamp
+- correct QR when enabled
+- no missing-image artifacts
+
+### Print correctness
+
+- A4
+- safe margins
+- grayscale-readable
+- normal print scale
 
 ---
 
-# 41. Print Quality
+# 41. PDF Test Matrix
 
-The PDF must remain readable when:
+The renderer must be tested with at least these cases:
 
-- Printed in color
-- Printed in black and white
-- Printed at normal A4 scale
-
-Do not rely on edge-to-edge printing.
-
-Keep content inside safe margins.
+| Case | Expected result |
+|---|---|
+| Normal single-page invoice | Clean A4 output |
+| Invoice 043 regression | Exact displayed aggregate values |
+| Invoice 089 regression | Exact displayed aggregate values |
+| Long technical description | Wraps; no clipping |
+| Long customer name | Wraps; no overlap |
+| Long address | Wraps; no overflow |
+| Many line items | Multi-page flow |
+| Missing optional fields | Sections collapse cleanly |
+| Missing logo | No broken-image placeholder |
+| Missing signature | No broken-image placeholder |
+| QR disabled | No empty QR box |
+| Special characters | Render correctly |
+| Grayscale print | Information remains understandable |
+| Large amount | Currency alignment remains usable |
+| Negative round-off | Sign is obvious |
+| Inter-state tax presentation | IGST layout shown correctly |
+| Intra-state tax presentation | CGST/SGST layout shown correctly |
 
 ---
 
-# 42. Accessibility / Readability
+# 42. Visual Regression Strategy
 
-Use:
+PDF correctness should not rely only on opening the file manually.
 
-- Adequate contrast
-- Clear hierarchy
-- Consistent alignment
-- Readable font sizes
-- Logical reading order
+Use two levels of testing:
 
-Important values such as:
+## Level 1 — Structural/content assertions
+
+Verify:
+
+- PDF generated successfully.
+- expected page count.
+- expected text present.
+- expected invoice number present.
+- expected grand total present.
+- expected technical description present.
+
+## Level 2 — Visual regression
+
+For approved fixtures:
+
+1. Render the PDF page to an image.
+2. Compare with the approved baseline using a controlled tolerance.
+3. Review meaningful layout differences instead of requiring pixel-perfect identity across different renderers/environments.
+
+Approved fixture PDFs/images should be versioned with the codebase.
+
+---
+
+# 43. Font and Asset Requirements
+
+Fonts and assets used by the renderer must be explicit and reproducible.
+
+The application should not depend on an arbitrary font installed on the user's machine.
+
+At minimum:
+
+- specify the selected font family
+- package required font files with the application when licensing permits
+- verify INR and technical symbols
+- version logo/signature assets
+- handle missing optional assets gracefully
+
+Do not silently substitute a font that changes layout enough to cause clipping.
+
+---
+
+# 44. Template Versioning
+
+The invoice should carry a template version such as:
 
 ```text
-Invoice Number
-Invoice Date
-Customer
-Grand Total
+invoice_template_version = "1.0"
 ```
 
-must be quickly discoverable.
+A future visual redesign can then produce:
+
+```text
+1.1
+2.0
+```
+
+without changing the historical business data of an existing finalized invoice.
+
+Template versioning is for visual/document reproducibility.
+
+It must not be used as a substitute for invoice calculation or GST versioning.
 
 ---
 
-# 43. PDF Acceptance Criteria
+# 45. Final Acceptance Criteria
 
-The final PDF is accepted when:
+The PDF layout is accepted only when:
 
-1. It resembles a professional business invoice.
-2. It retains all required Tally-derived billing information.
-3. Mould/job technical data is clearly presented.
-4. GST information is clear.
-5. Grand total is highly visible.
-6. Amount in words is readable.
-7. Bank/payment information is clearly separated.
-8. Signature/declaration is clear.
-9. Optional fields do not produce awkward empty blocks.
-10. Multi-page invoices remain readable.
-11. Black-and-white printing remains usable.
-12. The source invoice calculation values can be reproduced exactly.
+1. It looks like a professional business invoice.
+2. It preserves all required billing/GST information from the finalized invoice.
+3. Mould/job/operation/specification information is easy to understand.
+4. Invoice number and date are immediately discoverable.
+5. Customer/consignee information is clear.
+6. Applicable GST presentation is clear.
+7. Grand Total is highly visible.
+8. Amount in words is readable.
+9. Bank/payment information is clearly separated.
+10. Payment status does not overpower the Grand Total.
+11. Signature and declaration are complete.
+12. Optional fields do not create awkward empty blocks.
+13. Long descriptions never clip.
+14. Multi-page invoices remain readable.
+15. Continuation pages repeat line-item headings.
+16. Footer page numbering is correct.
+17. Black-and-white printing remains usable.
+18. Special characters render correctly.
+19. Missing optional assets do not break the document.
+20. The renderer never queries the database directly.
+21. The renderer does not independently recalculate billing values.
+22. Regression fixtures reproduce the approved aggregate values exactly.
+23. The PDF is suitable for normal Windows printing on A4 paper.
 
 ---
 
-# 44. Recommended Visual Priority
+# 46. Visual Priority
 
-Use this hierarchy:
+Use this priority:
 
 ```text
 1. Company + TAX INVOICE
 2. Invoice Number / Date
 3. Customer
-4. Mould / Job / Operation
-5. Line-item Amounts
+4. Mould / Job / Operation / Specification
+5. Line-item amounts
 6. GRAND TOTAL
-7. GST Summary
-8. Payment Details
+7. GST summary
+8. Payment details
 9. Notes / Terms
 10. Legal / Footer
 ```
 
-The invoice should communicate "what was billed and how much" before secondary information.
+The invoice should communicate the core transaction before secondary information.
 
 ---
 
-# 45. Final Layout Principle
+# 47. Final Design Principle
 
-The finished PDF should feel like:
+The finished invoice should feel like:
 
 ```text
-Tally's accounting accuracy
-+
-Modern business invoice clarity
-+
+Tally accounting accuracy
+        +
+Modern business-invoice clarity
+        +
 Mould/machining technical readability
+        +
+Reliable A4 printing
 ```
 
-not:
+It should **not** feel like:
 
 ```text
-Tally copy
-or
-generic retail invoice
-or
-over-designed marketing document
+A Tally screenshot
+        or
+A generic retail invoice
+        or
+An over-designed marketing document
+        or
+A fragile one-page layout that breaks with real data
 ```
+
+The most important quality criterion is not visual decoration.
+
+It is:
+
+> **A professional invoice that remains correct, readable, printable, and reproducible when real mould/machining data is used.**
