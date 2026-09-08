@@ -77,6 +77,38 @@ class TaxRateConfig(DomainModel):
     igst_rate: Decimal
 
 
+class Asset(DomainModel):
+    """A versioned invoice asset: logo, signature, or stamp (DECISIONS D-019).
+
+    Assets are content-addressed/versioned rather than mutable paths, so a
+    finalized invoice can pin the exact version it used. ``sha256`` identifies
+    the content and ``stored_path`` locates the bytes in the local asset store.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    kind: str = ""
+    version: int = 1
+    sha256: str = ""
+    stored_path: str = ""
+    created_at: str = ""
+
+
+class SequenceState(DomainModel):
+    """Persisted numbering-sequence state for one scope (design section 9).
+
+    Scoped by company + financial year + prefix. ``next_sequence`` is the value
+    the next allocation will take; ``high_water_mark`` is the highest sequence
+    ever issued in this scope, used for restore reconciliation (DECISIONS
+    D-029).
+    """
+
+    company_id: uuid.UUID
+    financial_year: str
+    prefix: str
+    next_sequence: int
+    high_water_mark: int = 0
+
+
 class Company(DomainModel):
     """Supplier/company master (Req 1). Single active company in V1."""
 

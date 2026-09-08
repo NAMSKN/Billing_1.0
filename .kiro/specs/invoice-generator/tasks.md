@@ -187,7 +187,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** deterministic ordering. _Requirements: 23.4._
 
-- [ ] 16. Repository contracts
+- [x] 16. Repository contracts
   - **Objective:** Typed ports.
   - **Dependencies:** Task 5.
   - **Scope:** Protocols for Company/Customer/Invoice/Sequence/Asset/Settings repos.
