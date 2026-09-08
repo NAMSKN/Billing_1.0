@@ -158,7 +158,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** derived from final values only. _Requirements: 22._
 
-- [ ] 13. Golden regression fixtures
+- [x] 13. Golden regression fixtures
   - **Objective:** Lock in 043 and 089 aggregates.
   - **Dependencies:** Task 11.
   - **Scope:** aggregate fixtures; complete line-level labeled pending.
