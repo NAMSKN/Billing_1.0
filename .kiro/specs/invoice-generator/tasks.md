@@ -261,7 +261,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** integration tests pass.
   - **DoD:** one outer transaction; issuance == commit; no inner commit. _Requirements: 9.2, 9.3, 9.4, 10.5, 10.9; DECISIONS D-026, D-027, D-028; design §22._
 
-- [ ] 24. Finalized snapshots
+- [x] 24. Finalized snapshots
   - **Objective:** Immutable invoice-facing snapshot.
   - **Dependencies:** Task 23.
   - **Scope:** build/store structured + snapshot_json; reproduction reads snapshot only.
