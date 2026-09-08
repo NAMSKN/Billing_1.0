@@ -149,7 +149,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** grand = raw + round_off. _Requirements: 7.4, 7.5._
 
-- [ ] 12. Amount in words
+- [x] 12. Amount in words
   - **Objective:** INR words for grand total and tax amount.
   - **Dependencies:** Task 11.
   - **Scope:** num2words wrapper; INR + paise formatting.

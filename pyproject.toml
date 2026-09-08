@@ -58,3 +58,10 @@ packages = ["invoice_generator"]
 mypy_path = "src"
 strict = true
 warn_unused_ignores = true
+
+# num2words ships no type stubs / py.typed marker. Ignore only its missing
+# imports (scoped override, not a blanket suppression) so strict mode still
+# applies to all of our own code.
+[[tool.mypy.overrides]]
+module = ["num2words"]
+ignore_missing_imports = true
