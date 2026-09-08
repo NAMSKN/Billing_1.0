@@ -81,6 +81,10 @@ Per DECISIONS D-004/D-005:
 
 `domain/money.py` provides `to_paise(Decimal) -> int`, `from_paise(int) -> Decimal`, and analogous helpers for quantity/percent. Conversion happens **only** at the repository boundary; the domain and calculation engine work in `Decimal`. Round-half-up is applied only at the engine's defined quantization points. A property test asserts round-trip losslessness (UI→domain→DB→domain).
 
+### Entity identity (UUID)
+
+Every persistent entity carries a UUID4 generated in the domain/application layer (DECISIONS D-023), stored as canonical lowercase TEXT (D-024). `domain/ids.py` defines an injectable `IdGenerator` (default UUID4) so tests can be deterministic without monkeypatching. Repositories convert `uuid.UUID` ⇄ canonical string and validate format at the boundary. The invoice UUID is distinct from the invoice number (D-025): `invoices.id` (UUID) is the internal identity; `invoices.invoice_number` (nullable business string) is assigned only at finalization.
+
 ## 4. GST / Tax Determination
 
 Place of Supply (state + code) is explicit on the invoice (Req 11) and defaults from the customer. Tax type:
@@ -89,10 +93,12 @@ Place of Supply (state + code) is explicit on the invoice (Req 11) and defaults 
 tax_type = INTRA_STATE if company.state_code == place_of_supply.state_code else INTER_STATE
 ```
 
-- INTRA_STATE → CGST = SGST = taxable × (rate/2); IGST = 0.
-- INTER_STATE → IGST = taxable × rate; CGST = SGST = 0.
+Tax rates are explicit via `TaxRateConfig(total_rate, cgst_rate, sgst_rate, igst_rate)` (D-030). The engine consumes the configured component rates; it does not derive CGST/SGST by halving the total.
 
-A single normal supply line never carries both. Only `TaxTreatment.TAXABLE` is supported in V1; requesting reverse charge/exempt/nil/zero-rated/export/SEZ is a validation error, never silent 0% (D-008). Tax type is computed in the engine, never inferred in the UI.
+- INTRA_STATE → CGST = taxable × cgst_rate; SGST = taxable × sgst_rate; IGST = 0.
+- INTER_STATE → IGST = taxable × igst_rate; CGST = SGST = 0.
+
+Normal V1 config: total 18% → CGST 9% / SGST 9% / IGST 18% (configuration, not a hardcoded half-split). A single normal supply line never carries both component sets. Only `TaxTreatment.TAXABLE` is supported in V1; requesting reverse charge/exempt/nil/zero-rated/export/SEZ is a validation error, never silent 0% (D-008). Tax type is computed in the engine, never inferred in the UI.
 
 ## 5. Calculation Engine
 
@@ -103,9 +109,9 @@ Per line:
 gross     = quantize(quantity * rate)
 discount  = quantize(gross * discount_percent / 100)
 taxable   = quantize(gross - discount)
-cgst      = quantize(taxable * cgst_rate / 100)   # intra
-sgst      = quantize(taxable * sgst_rate / 100)   # intra
-igst      = quantize(taxable * igst_rate / 100)   # inter
+cgst      = quantize(taxable * cfg.cgst_rate / 100)   # intra; from TaxRateConfig (D-030)
+sgst      = quantize(taxable * cfg.sgst_rate / 100)   # intra; from TaxRateConfig
+igst      = quantize(taxable * cfg.igst_rate / 100)   # inter; from TaxRateConfig
 ```
 
 Invoice aggregation and round-off:
@@ -148,9 +154,11 @@ schema_version(version)
 service_templates(id, ...)   -- optional / P2
 ```
 
-Money columns are INTEGER paise; quantity/percent use the scaled integers from §3. The finalized snapshot is stored (structured columns for query + a `snapshot_json` capturing the full invoice-facing document for exact reproduction). Draft invoices have `invoice_number = NULL`.
+All `id` and foreign-key columns are UUID `TEXT NOT NULL` in canonical form (D-024); no INTEGER/AUTOINCREMENT primary keys. Money columns are INTEGER paise; quantity/percent use the scaled integers from §3. The finalized snapshot is stored (structured columns for query + a `snapshot_json` capturing the full invoice-facing document for exact reproduction). Draft invoices have `invoice_number = NULL` but always a UUID `id`.
 
-Constraints: FK on all references; partial UNIQUE index on `invoice_number` where NOT NULL; CHECK on `status` and `payment_status`; draft delete cascades to `invoice_items`. Parameterized SQL only.
+**Snapshot authority (D-010):** for a FINALIZED invoice, `snapshot_json` is the authoritative source for document reproduction. Structured columns exist only for search/filtering/listing/reporting/indexing. Reproduction must never reconstruct historical content from live `companies`/`customers`.
+
+Constraints: FK on all references; partial UNIQUE index on `invoice_number` where NOT NULL (the final backstop against duplicate issued numbers, D-028); CHECK on `status` and `payment_status`; draft delete cascades to `invoice_items`. Parameterized SQL only. `invoice_sequences.high_water_mark` is per scope (company/FY/prefix).
 
 ## 8. Repository Contracts
 
@@ -158,19 +166,19 @@ Constraints: FK on all references; partial UNIQUE index on `invoice_number` wher
 
 ## 9. Invoice Numbering Service
 
-`numbering_service.py` allocates from `invoice_sequences` (never `MAX()`, D-012):
+`numbering_service.py` allocates from `invoice_sequences` (never `MAX()`, D-012). It **participates in the caller's transaction and never begins or commits its own** (D-026). The owning finalization use case opens the transaction with `BEGIN IMMEDIATE` (SQLite reserved write lock, D-028 — not `SELECT ... FOR UPDATE`), then calls the allocator, which within that transaction:
 
 ```
-BEGIN IMMEDIATE
-  row = SELECT ... FOR the (company, financial_year, prefix) scope   # created on first use with start_value
-  seq = row.next_sequence
-  UPDATE next_sequence = seq + 1,
-         high_water_mark = MAX(high_water_mark, seq)
-  number = format(prefix, financial_year, seq, pad_width)
-COMMIT
+# inside the caller's BEGIN IMMEDIATE transaction (no BEGIN/COMMIT here)
+row = read sequence row for (company, financial_year, prefix)   # created on first use with start_value
+seq = row.next_sequence
+update next_sequence = seq + 1,
+       high_water_mark = MAX(high_water_mark, seq)
+number = format(prefix, financial_year, seq, pad_width)
+return number   # NOT yet "issued" — issuance is defined by the outer COMMIT (D-027)
 ```
 
-Financial year derives from invoice date (Indian FY per Q-004). Backdated invoices allocate from the implied FY's sequence and are flagged (Q-012). Prefix changes affect only future allocations. Contention retries with a bounded backoff; on repeated failure it raises `NumberingError` without issuing a duplicate. The formatter is configurable (Q-002/Q-003). `high_water_mark` underpins restore reconciliation (§16).
+The number is considered **issued** only when the outer transaction commits (D-027); a rollback undoes the sequence advance, so the number is not consumed and may be allocated later. Financial year derives from invoice date (Indian FY per Q-004). Backdated invoices allocate from the implied FY's sequence and are flagged (Q-012). Prefix changes affect only future allocations. Contention (SQLite `BUSY`) retries with bounded backoff; on repeated failure the use case raises `NumberingError` and rolls back without issuing a duplicate. The `UNIQUE` invoice_number index is the final backstop. The formatter is configurable (Q-002/Q-003). `high_water_mark` (per scope) underpins restore reconciliation (§16).
 
 ## 10. Invoice Lifecycle Service
 
@@ -204,21 +212,26 @@ Independent field (D-015). Allowed: UNPAID/PARTIAL/PAID. Changing it updates onl
 
 ## 16. Restore Numbering Reconciliation
 
-Critical integrity mechanism (finding 3.6, D-018). Each sequence row stores a monotonic `high_water_mark`. Because the app is single-computer, the high-water mark reflects the highest number ever issued. After a restore, the restored DB may be behind reality. The service:
-1. Reads restored sequences and their high-water marks.
-2. Enters a "reconciliation pending" state that **blocks new invoice issuance**.
-3. Requires explicit operator confirmation; on confirm, advances `next_sequence` to at least `high_water_mark + 1` so post-backup numbers are never reused.
-Exact UX (auto-advance vs manual) is Q-009; the safe interim (block + confirm + advance) is implemented.
+Critical integrity mechanism (finding 3.6, D-029). **The high-water mark inside an older backup cannot know about numbers issued after that backup was taken** (e.g. backup knows 45; 46/47/48 were issued later; the restored DB only knows 45). Reconciliation therefore uses the **pre-restore trusted state captured from the CURRENT database**, not the restored backup's internal mark. Process:
+1. **Before** replacing data: capture the current trusted `high_water_mark` **per numbering scope** (company/FY/prefix) into reconciliation metadata stored outside the DB file (alongside the safety backup) so it survives the restore.
+2. Create the safety backup of the current DB; validate the restore package.
+3. Restore the backup atomically.
+4. Enter `RECONCILIATION_PENDING`, which **blocks new invoice issuance**.
+5. For each scope, compare `restored_high_water_mark` vs the captured `trusted_high_water_mark`; advance the effective `next_sequence` to at least `trusted_high_water_mark + 1`.
+6. Persist reconciled sequences; require explicit operator confirmation; only then allow new finalizations.
+Scopes reconcile independently (no single global mark). Exact UX (auto-advance vs manual) is Q-009; the safe interim (capture → block → advance-per-scope → confirm) is implemented. On restore failure, recover from the safety backup (§15).
 
 ## 17. PDF Render DTO
 
-`application/render_dto.py` defines an immutable view model containing everything the renderer needs: preformatted strings, resolved (already-calculated) amounts, tax summary rows, party blocks, reference key/value pairs (empty ones omitted, Req 19.6), resolved asset bytes/paths for the pinned versions, template version, and page metadata. `pdf_service.py` builds it from the stored snapshot. The renderer receives only this DTO (D-011).
+`application/render_dto.py` defines an immutable view model containing everything the renderer needs: preformatted strings, resolved (already-calculated) amounts, tax summary rows, party blocks, reference key/value pairs (empty ones omitted, Req 19.6), resolved asset bytes/paths for the pinned versions, template version, and page metadata.
+
+**Asset resolution boundary (D-011):** the flow is `finalized snapshot → PDF service resolves pinned asset IDs (via AssetRepository) → build render DTO → ReportLab renderer`. The renderer MUST NOT query the AssetRepository or SQLite, resolve asset IDs, load mutable company settings, or recalculate business values — it receives resolved asset bytes and finished values through the DTO only. `pdf_service.py` builds the DTO from the stored snapshot.
 
 ## 18. ReportLab Renderer
 
 `infrastructure/pdf/renderer.py` uses a `BaseDocTemplate` with a frame + `PageTemplate` for repeating line-item headers and page numbers. Composed components (each a focused function/class consuming a slice of the DTO): Header/Branding, InvoiceMetadata, PartyDetails (Bill/Ship), ReferenceDetails, LineItemsTable, TaxSummary, Totals, AmountWords, Payment (Bank + optional UPI QR), Notes, Terms, Declaration, Signature, Footer — rendered in the Req 19.2 order.
 
-Robustness (finding 3.16, Req 19): A4 portrait; long text wraps via `Paragraph` flowables (never clipped); tables split across pages repeating headers; special characters `& < > ₹ ×` handled (XML-escape for Paragraph, embed a font with ₹/× glyphs); missing logo/signature/QR omitted gracefully; grand total most prominent; no sub-readable font shrinking to force one page. The renderer never recalculates. Template version selects the layout variant (§19-template, Req 18).
+Robustness (finding 3.16, Req 19): A4 portrait; long text wraps via `Paragraph` flowables (never clipped); tables split across pages repeating headers; special characters `& < > ₹ ×` handled (XML-escape for Paragraph, embed a font with ₹/× glyphs); missing logo/signature/QR omitted gracefully; grand total most prominent; no sub-readable font shrinking to force one page. The renderer never recalculates and never resolves asset IDs or queries the DB (§17). Template version selects the layout variant (§19-template, Req 18).
 
 ## 19. PySide6 Presentation Layer
 
@@ -234,7 +247,23 @@ Screens (Req 25.1): Dashboard, Customers, Create/Edit Invoice, Invoice History, 
 
 ## 22. Transaction Boundaries
 
-Finalization is one transaction (Req 9, finding 3.1): `BEGIN IMMEDIATE` → strict validate → allocate number (advancing high-water mark) → build + persist snapshot + items + totals → pin asset/template versions → `COMMIT`; any failure → `ROLLBACK` (no partial invoice, no consumed-but-reusable number). Draft saves are their own small transactions. Restore is transactional with a safety-backup fallback (§15–16).
+**Application use cases own transaction boundaries (D-026).** Repositories and the numbering service participate in the caller's transaction and never begin/commit their own when invoked inside a use-case transaction. A small UnitOfWork/transaction-context may carry the active connection; no generic transaction framework.
+
+`InvoiceService.finalize` owns one transaction (Req 9, finding 3.1), opened with `BEGIN IMMEDIATE` (SQLite reserved write lock, D-028 — never `SELECT ... FOR UPDATE`):
+
+```
+BEGIN IMMEDIATE
+  1 load draft            2 strict validation       3 resolve Place of Supply
+  4 determine tax         5 calculate line values    6 calculate tax
+  7 calculate totals      8 allocate invoice number (in THIS transaction, advance high-water)
+  9 build snapshot       10 resolve/pin asset versions  11 pin template version
+ 12 persist invoice      13 persist line items      14 persist snapshot
+ 15 persist sequence update
+COMMIT            # ← number is ISSUED only here (D-027)
+# any failure → ROLLBACK: no partial invoice; allocated number NOT issued, may be reused later
+```
+
+Once committed the number is permanently issued and never reused, even after cancellation (D-027). Draft saves are their own small transactions. Restore is transactional with a safety-backup fallback and pre-restore trusted-state capture (§15–16).
 
 ## 23. Testing Strategy
 
@@ -245,8 +274,9 @@ Follows steering `testing-rules.md`:
 - Lifecycle: draft edit, strict finalization + rollback, snapshot immutability, cancellation, duplication.
 - Numbering: allocation, uniqueness, no reuse, FY rollover, backdated case, high-water mark.
 - Restore: safe backup, manifest validation, safety backup, reconciliation gate, failure recovery.
-- PDF: file/opens/A4/page count/required text/golden totals/optional-field omission/long-content wrap/special chars/missing assets.
-- Windows acceptance: early spike + final end-to-end. Money asserts exact Decimal/paise; no network; deterministic (injected clock/paths).
+- PDF: file/opens/A4/page count/required text/golden totals/optional-field omission/long-content wrap/special chars/missing assets. Reprint acceptance asserts **content equivalence** (extracted text + structured values), never byte-for-byte PDF equality (D-031).
+- Identity: UUID generated on creation, persisted/restored unchanged, canonical format, FK relationships, duplicate id rejected, id not regenerated on update, duplicate→new UUID, cancel/finalize keep same UUID, backup/restore preserves UUIDs; deterministic via injected id generator (D-023).
+- Windows acceptance: early spike + final end-to-end. Money asserts exact Decimal/paise; no network; deterministic (injected clock/paths/id generator).
 
 ## 24. Windows Printing / Preview Boundary
 

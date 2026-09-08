@@ -75,14 +75,23 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** property tests pass with exact equality.
   - **DoD:** no float in money paths. _Requirements: 5; DECISIONS D-004, D-005._
 
+- [ ] 4a. UUID entity-id strategy
+  - **Objective:** Application-generated UUID4 identity with an injectable generator.
+  - **Dependencies:** Task 2.
+  - **Scope:** `IdGenerator` port (default UUID4); canonical-TEXT serialization + format validator; test UUID factory.
+  - **Files:** `domain/ids.py`, `tests/unit/test_ids.py`, `tests/support/id_factory.py`.
+  - **Tests:** UUID4 generated; canonical lowercase format; validator rejects non-canonical; deterministic via injected generator (no uuid monkeypatch).
+  - **Acceptance evidence:** unit tests pass.
+  - **DoD:** no AUTOINCREMENT anywhere; UUID distinct from invoice number. _Requirements: 30; DECISIONS D-023, D-024, D-025._
+
 - [ ] 5. Domain models
-  - **Objective:** Core immutable models.
-  - **Dependencies:** Task 4.
-  - **Scope:** `Company`, `Customer`, `InvoiceLine`, `Invoice`, `InvoiceTotals`, `TaxSummaryRow`, snapshot type; bill-to/ship-to distinct.
+  - **Objective:** Core immutable models with UUID ids.
+  - **Dependencies:** Task 4, 4a.
+  - **Scope:** `Company`, `Customer`, `InvoiceLine`, `Invoice`, `InvoiceTotals`, `TaxSummaryRow`, `TaxRateConfig`, snapshot type; every entity has a UUID `id`; `Invoice.id` (UUID) distinct from `invoice_number` (nullable); bill-to/ship-to distinct.
   - **Files:** `domain/models.py`, `tests/unit/test_models.py`.
-  - **Tests:** construction, immutability of finalized values, distinct bill/ship.
+  - **Tests:** construction; UUID id present and immutable; id not regenerated on update; immutability of finalized values; distinct bill/ship; UUID ≠ invoice number.
   - **Acceptance evidence:** unit tests pass; mypy strict clean.
-  - **DoD:** models consumed by services/engine later. _Requirements: 1, 2, 3, 4, 12._
+  - **DoD:** models consumed by services/engine later. _Requirements: 1, 2, 3, 4, 12, 30; DECISIONS D-023, D-025, D-030._
 
 - [ ] 6. Validation infrastructure (draft vs finalize)
   - **Objective:** Separate permissive draft validation from strict finalization validation.
@@ -116,11 +125,11 @@ A checkbox alone is not evidence (DECISIONS D-022).
 - [ ] 9. Tax calculation
   - **Objective:** Per-line CGST/SGST or IGST.
   - **Dependencies:** Task 7, 8.
-  - **Scope:** `calculate_line_tax`; never both component sets on one line.
+  - **Scope:** `calculate_line_tax` consuming explicit `TaxRateConfig` component rates; never both component sets on one line; never halve total_rate to derive CGST/SGST.
   - **Files:** `domain/calculation.py`, `tests/unit/test_calc_tax.py`.
-  - **Tests:** intra splits rate/2; inter uses full rate; other components zero.
+  - **Tests:** intra uses configured cgst_rate/sgst_rate; inter uses configured igst_rate; other components zero; asymmetric-component config computed from config (not derived).
   - **Acceptance evidence:** tests pass.
-  - **DoD:** matches engine spec. _Requirements: 7.2, 6.3._
+  - **DoD:** consumes configured component rates. _Requirements: 6.4, 7.2, 6.3; DECISIONS D-030._
 
 - [ ] 10. Tax grouping (composite key)
   - **Objective:** Build reconciling tax summary.
@@ -163,11 +172,11 @@ A checkbox alone is not evidence (DECISIONS D-022).
 - [ ] 14. SQLite schema
   - **Objective:** Define tables with exact numeric columns and constraints.
   - **Dependencies:** Task 5.
-  - **Scope:** all tables from design §7; INTEGER paise/scaled columns; FK, partial unique invoice_number, status CHECKs.
+  - **Scope:** all tables from design §7; UUID `TEXT NOT NULL` primary/foreign keys (no INTEGER/AUTOINCREMENT); INTEGER paise/scaled columns; FK, partial unique invoice_number, status CHECKs; per-scope `high_water_mark`.
   - **Files:** `infrastructure/db/schema.sql` (or migration 0001), `tests/integration/test_schema.py`.
-  - **Tests:** table creation; constraint enforcement.
+  - **Tests:** table creation; constraint enforcement; PK/FK columns are TEXT UUID; no AUTOINCREMENT present.
   - **Acceptance evidence:** integration tests pass.
-  - **DoD:** no REAL money columns. _Requirements: 23; DECISIONS D-004._
+  - **DoD:** no REAL money columns; no INTEGER surrogate keys. _Requirements: 23, 30; DECISIONS D-004, D-023, D-024._
 
 - [ ] 15. Migrations
   - **Objective:** schema_version-based migration runner.
@@ -192,9 +201,9 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Dependencies:** Task 14, 16.
   - **Scope:** CRUD + queries; conversions at boundary; parameterized SQL.
   - **Files:** `infrastructure/db/*_repository.py`, `tests/integration/test_repositories.py`.
-  - **Tests:** persistence round-trip; exact paise round-trip; summary-only invoice listing.
+  - **Tests:** persistence round-trip; exact paise round-trip; UUID canonical round-trip + FK relationships preserved; duplicate id rejected; summary-only invoice listing.
   - **Acceptance evidence:** integration tests pass.
-  - **DoD:** no precision loss. _Requirements: 5.4, 21.3, 23.2._
+  - **DoD:** no precision loss; UUIDs preserved unchanged. _Requirements: 5.4, 21.3, 23.2, 30; DECISIONS D-024._
 
 - [ ] 18. Constraints and integrity tests
   - **Objective:** Prove integrity rules.
@@ -217,13 +226,13 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **DoD:** formatter configurable. _Requirements: 10.1, 10.3, 10.7; OPEN_QUESTIONS Q-002/003/004._
 
 - [ ] 20. Safe sequence allocation
-  - **Objective:** Transactional allocation with high-water mark; never MAX().
+  - **Objective:** Sequence allocation that participates in the caller's transaction; never MAX(), never its own COMMIT.
   - **Dependencies:** Task 19.
-  - **Scope:** `numbering_service.allocate` (BEGIN IMMEDIATE, increment, advance high-water, retry).
+  - **Scope:** `numbering_service.allocate(conn/uow)` reads/updates the sequence row **within the caller's `BEGIN IMMEDIATE` transaction**; advances per-scope high-water; no BEGIN/COMMIT inside; no `SELECT ... FOR UPDATE`; contention (`BUSY`) retry left to the use case.
   - **Files:** `application/numbering_service.py`, `tests/integration/test_numbering_alloc.py`.
-  - **Tests:** uniqueness under repeated allocation; FY rollover; backdated allocation case; contention retry; no duplicate on failure.
+  - **Tests:** uniqueness under repeated allocation; FY rollover; backdated allocation case; two concurrent finalizations never get the same seq; allocation rolled back when outer tx rolls back (number NOT issued); no duplicate on failure.
   - **Acceptance evidence:** integration tests pass.
-  - **DoD:** MAX() not used anywhere. _Requirements: 10; DECISIONS D-012; OPEN_QUESTIONS Q-012._
+  - **DoD:** MAX() not used; allocator never commits its own tx. _Requirements: 10; DECISIONS D-012, D-026, D-027, D-028; OPEN_QUESTIONS Q-012._
 
 - [ ] 21. Draft lifecycle
   - **Objective:** Create/update/delete drafts with permissive validation.
@@ -244,40 +253,40 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **DoD:** distinct from draft validation. _Requirements: 9.1; finding 3.1._
 
 - [ ] 23. Atomic finalization
-  - **Objective:** One-transaction finalize.
+  - **Objective:** One outer transaction owned by the use case (D-026); number issued only on commit (D-027).
   - **Dependencies:** Task 11, 20, 22.
-  - **Scope:** validate→allocate→calculate→snapshot→pin asset/template→persist→commit; rollback on failure.
-  - **Files:** `application/invoice_service.py`, `tests/integration/test_finalization.py`.
-  - **Tests:** success locks fields; injected failure rolls back fully; no reusable number consumed.
+  - **Scope:** `InvoiceService.finalize` opens `BEGIN IMMEDIATE`, runs validate→resolve PoS→determine tax→calculate→allocate number→snapshot→pin asset/template→persist invoice/items/snapshot/sequence→COMMIT; ROLLBACK on any failure. No repository/service commits inside.
+  - **Files:** `application/invoice_service.py`, `application/unit_of_work.py`, `tests/integration/test_finalization.py`.
+  - **Tests:** success locks fields and issues number; injected failure at each step rolls back fully with no partial invoice; a number allocated then rolled back is reusable by a later successful finalize; no inner commit occurs.
   - **Acceptance evidence:** integration tests pass.
-  - **DoD:** no partial invoice. _Requirements: 9.2, 9.3, 9.4; §22._
+  - **DoD:** one outer transaction; issuance == commit; no inner commit. _Requirements: 9.2, 9.3, 9.4, 10.5, 10.9; DECISIONS D-026, D-027, D-028; design §22._
 
 - [ ] 24. Finalized snapshots
   - **Objective:** Immutable invoice-facing snapshot.
   - **Dependencies:** Task 23.
   - **Scope:** build/store structured + snapshot_json; reproduction reads snapshot only.
   - **Files:** `application/invoice_service.py`, `domain/models.py`, `tests/integration/test_snapshot_immutability.py`.
-  - **Tests:** edit customer/company master → finalized snapshot unchanged; reproduction uses snapshot.
+  - **Tests:** edit customer/company master → finalized snapshot unchanged; reproduction uses `snapshot_json` as authority (never live master tables); structured columns used only for listing.
   - **Acceptance evidence:** immutability test passes.
-  - **DoD:** no live-master join for reproduction. _Requirements: 12; DECISIONS D-010._
+  - **DoD:** snapshot is authoritative; no live-master join for reproduction. _Requirements: 12; DECISIONS D-010._
 
 - [ ] 25. Cancellation
   - **Objective:** Cancel preserving record + number.
   - **Dependencies:** Task 23.
   - **Scope:** status CANCELLED, timestamp, reason; number not released; optional replacement link.
   - **Files:** `application/invoice_service.py`, `tests/integration/test_cancellation.py`.
-  - **Tests:** cancel keeps number; not hard-deleted; state visible.
+  - **Tests:** cancel keeps same UUID and same number; not hard-deleted; state visible.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** history intact. _Requirements: 14; DECISIONS D-016._
+  - **DoD:** history intact; UUID unchanged. _Requirements: 14, 30; DECISIONS D-016, D-025._
 
 - [ ] 26. Duplication
   - **Objective:** Duplicate → new draft only.
   - **Dependencies:** Task 21.
   - **Scope:** copy editable content; exclude id/final state/number/payment status.
   - **Files:** `application/invoice_service.py`, `tests/integration/test_duplication.py`.
-  - **Tests:** duplicate is DRAFT with null number; original unchanged.
+  - **Tests:** duplicate is DRAFT with a NEW UUID and null number; original UUID/number unchanged.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** new identity on finalize. _Requirements: 16; DECISIONS D-017._
+  - **DoD:** new UUID identity; number assigned only on finalize. _Requirements: 16, 30; DECISIONS D-017, D-025._
 
 - [ ] 27. Payment status
   - **Objective:** Independent payment status.
@@ -421,22 +430,22 @@ A checkbox alone is not evidence (DECISIONS D-022).
 - [ ] 42. PDF regression tests
   - **Objective:** Programmatic PDF acceptance incl golden.
   - **Dependencies:** Task 37, 40.
-  - **Scope:** end-to-end render of golden invoices; assert text/values.
+  - **Scope:** end-to-end render of golden invoices; assert text/values; reprint asserts **content equivalence** (extracted text + structured values), never byte-for-byte PDF equality.
   - **Files:** `tests/integration/test_pdf_regression.py`.
-  - **Tests:** file/opens/A4/page count/required text/golden totals present.
+  - **Tests:** file/opens/A4/page count/required text/golden totals present; two renders of the same finalized invoice are content-equivalent even if bytes differ.
   - **Acceptance evidence:** tests pass; sample PDFs generated.
-  - **DoD:** golden totals appear in PDF. _Requirements: 19, 28._
+  - **DoD:** golden totals appear in PDF; no binary-hash comparison. _Requirements: 19, 20.4, 28; DECISIONS D-031._
 
 ## PHASE 7 — Application Shell
 
 - [ ] 43. Composition root
-  - **Objective:** Wire dependencies in one place.
+  - **Objective:** Wire dependencies in one place; provide a reusable test composition factory.
   - **Dependencies:** Task 17, 23, 31.
-  - **Scope:** `bootstrap.py` (connection→repos→services→controllers); constructor injection.
-  - **Files:** `bootstrap.py`, `tests/integration/test_bootstrap.py`.
-  - **Tests:** wiring builds; a use case runs end-to-end through the root with a temp DB.
+  - **Scope:** `bootstrap.py` (connection→repos→services→controllers; constructor injection; injectable IdGenerator + clock). Plus `tests/support/build_test_app.py` reusing the same wiring so integration tests never hand-roll incompatible wiring.
+  - **Files:** `bootstrap.py`, `tests/support/build_test_app.py`, `tests/integration/test_bootstrap.py`.
+  - **Tests:** wiring builds; a use case runs end-to-end through the root with a temp DB, injected id generator and clock.
   - **Acceptance evidence:** integration test passes.
-  - **DoD:** no service locator/global container. _Requirements: 25; DECISIONS D-021._
+  - **DoD:** no service locator/global container; test factory shares production wiring. _Requirements: 25, 30; DECISIONS D-021, D-023._
 
 - [ ] 44. PySide6 application shell
   - **Objective:** MainWindow + navigation + worker-thread scaffolding.
@@ -450,7 +459,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 - [ ] 45. Error / notification handling
   - **Objective:** UI error boundary.
   - **Dependencies:** Task 43.
-  - **Scope:** map typed errors → friendly messages; log technical detail.
+  - **Scope:** map typed errors → friendly messages; log technical detail (may include UUIDs, never secrets/PII).
   - **Files:** `ui/common/errors.py`, `application/errors.py`, tests.
   - **Tests:** each error type maps to a message; no stack trace in UI text; log written.
   - **Acceptance evidence:** tests pass.
@@ -462,17 +471,17 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Objective:** Company, bank, assets, numbering, tax defaults, notes/terms, paths.
   - **Dependencies:** Task 44, 11(company svc), 19.
   - **Files:** `ui/settings/`, tests (offscreen).
-  - **Tests:** save/validate company; asset set as versioned; numbering config persisted.
+  - **Tests:** save/validate company; asset set as versioned; numbering config persisted; tax component rates configured (TaxRateConfig).
   - **Acceptance evidence:** tests pass.
-  - **DoD:** graceful missing-asset handling. _Requirements: 1, 5(assets), 10, 17._
+  - **DoD:** graceful missing-asset handling. _Requirements: 1, 17, 10, 6.4; DECISIONS D-030._
 
 - [ ] 47. Customer UI
   - **Objective:** Customer list/add/edit/archive.
   - **Dependencies:** Task 44.
   - **Files:** `ui/customers/`, tests.
-  - **Tests:** CRUD via service; archive hides from new-invoice selection.
+  - **Tests:** CRUD via service; archive hides from new-invoice selection; UUIDs not shown in normal UI.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** no SQL in widgets. _Requirements: 2._
+  - **DoD:** no SQL in widgets. _Requirements: 2, 30.7._
 
 - [ ] 48. Create/edit invoice UI
   - **Objective:** Invoice form with live totals.
@@ -486,9 +495,9 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Objective:** Finalize, preview, export, print, reprint.
   - **Dependencies:** Task 23, 42, 30.
   - **Files:** `ui/invoices/`, `application/print_service.py`, `application/pdf_service.py`, tests.
-  - **Tests:** finalize→preview identical to export; deterministic filename; reprint uses snapshot; export failure doesn't modify invoice.
+  - **Tests:** finalize→preview identical to export; deterministic filename; reprint uses snapshot and is **content-equivalent** (not byte-identical); export failure doesn't modify invoice; number issued only on commit.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** one rendering implementation. _Requirements: 20; DECISIONS D-011._
+  - **DoD:** one rendering implementation. _Requirements: 20; DECISIONS D-011, D-027, D-031._
 
 - [ ] 50. Invoice history
   - **Objective:** History list + search/filter + actions.
@@ -512,26 +521,27 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Objective:** Consistent SQLite backup.
   - **Dependencies:** Task 17.
   - **Files:** `infrastructure/backup/backup.py`, `tests/integration/test_backup_create.py`.
-  - **Tests:** backup uses online backup API; not a raw copy during writes.
+  - **Tests:** backup uses SQLite online backup API; not a raw copy during writes; UUIDs preserved.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** consistent snapshot. _Requirements: 15.1; DECISIONS D-018._
+  - **DoD:** consistent snapshot. _Requirements: 15.1, 30.6; DECISIONS D-018._
 
 - [ ] 53. Backup validation / manifest
   - **Objective:** Package + integrity manifest.
   - **Dependencies:** Task 52.
-  - **Scope:** db + schema/app version + required assets + manifest (sizes, SHA-256).
+  - **Scope:** db + schema/app version + required asset versions + manifest (sizes, SHA-256).
   - **Files:** `infrastructure/backup/manifest.py`, tests.
   - **Tests:** manifest generated; tamper detected on validate.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** assets included. _Requirements: 15.2; DECISIONS D-017(asset)._
+  - **DoD:** assets included. _Requirements: 15.2; DECISIONS D-019._
 
 - [ ] 54. Restore workflow
-  - **Objective:** Validate → confirm → restore atomically.
+  - **Objective:** Capture pre-restore trusted state → validate → confirm → restore atomically.
   - **Dependencies:** Task 53.
+  - **Scope:** before replacing data, capture current trusted per-scope high-water into reconciliation metadata stored outside the DB file (so it survives restore); then validate + restore.
   - **Files:** `infrastructure/backup/restore.py`, tests.
-  - **Tests:** valid backup restores; invalid rejected.
+  - **Tests:** trusted state captured before restore and survives DB replacement; valid backup restores; invalid rejected.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** atomic restore. _Requirements: 15.3._
+  - **DoD:** atomic restore; trusted state preserved. _Requirements: 15.3; DECISIONS D-029._
 
 - [ ] 55. Restore safety backup
   - **Objective:** Preserve current data before restore.
@@ -542,13 +552,13 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **DoD:** no silent overwrite. _Requirements: 15.3._
 
 - [ ] 56. Numbering reconciliation after restore
-  - **Objective:** Block reuse of post-backup numbers.
+  - **Objective:** Block reuse of post-backup numbers using pre-restore trusted state.
   - **Dependencies:** Task 20, 54.
-  - **Scope:** reconciliation-pending state; block issuance; advance to high-water+1 on confirm.
+  - **Scope:** RECONCILIATION_PENDING blocks issuance; per scope advance effective sequence to at least `trusted_high_water_mark + 1` using the captured pre-restore state (NOT the restored backup's internal mark); scopes reconcile independently; confirm then allow issuance.
   - **Files:** `application/numbering_service.py`, `infrastructure/backup/restore.py`, `tests/integration/test_restore_reconciliation.py`.
-  - **Tests:** after restore, new issuance blocked until confirmed; sequence advanced past high-water.
+  - **Tests:** scenario backup=45, later 46/47/48 issued, restore → new issuance blocked until confirmed and sequence advanced past 48 (uses trusted state, not restored 45); multiple scopes reconcile independently.
   - **Acceptance evidence:** tests pass.
-  - **DoD:** no number reuse. _Requirements: 15.5; DECISIONS D-018; OPEN_QUESTIONS Q-009._
+  - **DoD:** no number reuse; trusted-state driven. _Requirements: 15.5; DECISIONS D-029; OPEN_QUESTIONS Q-009._
 
 - [ ] 57. Restore failure recovery
   - **Objective:** Recover cleanly on failed restore.
@@ -572,7 +582,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 - [ ] 59. Service templates (if still in scope)
   - **Objective:** Optional reusable service descriptions (P2).
   - **Dependencies:** Task 48.
-  - **Scope:** save/insert templates; no inventory features.
+  - **Scope:** save/insert templates (UUID id); no inventory features.
   - **Files:** `application/settings_service.py`, `ui/invoices/`, tests.
   - **Tests:** insert template; line remains editable.
   - **Acceptance evidence:** tests pass (or task explicitly deferred).
@@ -618,48 +628,72 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## Specification Audit
 
-Consistency audit performed after the rewrite (checks A–O from the reconciliation brief).
+Consistency audit after the reconciliation rewrite and the UUID/transaction/restore correction pass.
 
-### Conflicts found and resolved
+### Conflicts found and resolved (reconciliation pass)
 
-1. **REAL vs exact money storage** — v1 design left storage ambiguous. Resolved: integer paise in SQLite; scaled integers for qty/percent (DECISIONS D-004/D-005; Req 5; design §3). _(3.2)_
-2. **Tax summary grouped by HSN/SAC only** — Resolved: composite key {HSN/SAC + treatment + rate(s)} with reconciliation test (Req 7.3; design §6). _(3.4)_
-3. **Draft vs finalization validation blurred** — Resolved: two distinct validators/paths (Req 8, 9; design §10, §22; Task 6, 21, 22). _(3.1)_
-4. **Numbering + restore reuse risk** — Resolved: dedicated sequence + persisted high-water mark + post-restore reconciliation gate (Req 10, 15.5; design §9, §16; Task 20, 56; DECISIONS D-012/D-018). _(3.5, 3.6)_
-5. **Snapshot relying on FKs** — Resolved: full invoice-facing snapshot (structured + snapshot_json), reproduction reads snapshot only (Req 12; design §11; DECISIONS D-010). _(3.7)_
-6. **Assets as mutable paths** — Resolved: versioned assets pinned per invoice, included in backups (Req 17; design §7/§17; DECISIONS D-019). _(3.8)_
-7. **No template versioning** — Resolved: template version on invoice; reprint preserves stored version by default (Req 18; DECISIONS D-020). _(3.9)_
-8. **Special GST treatments as 0%** — Resolved: explicitly out of scope; validation error, not silent 0% (Req 6.5; DECISIONS D-008). _(3.3)_
-9. **Coarse tasks** — Resolved: 64 fine-grained tasks with DoR/DoD and acceptance evidence. _(3.19, 3.20)_
-10. **Late printing/composition** — Resolved: early Windows print/preview spike (Phase 5) and early composition root (Phase 7) (Req 26; design §20/§24). _(3.14, 3.21)_
+1. **REAL vs exact money storage** → integer paise; scaled integers for qty/percent (D-004/D-005; Req 5; §3). _(3.2)_
+2. **Tax summary grouped by HSN/SAC only** → composite key {HSN/SAC + treatment + rate(s)} with reconciliation test (Req 7.3; §6). _(3.4)_
+3. **Draft vs finalization validation blurred** → two distinct validators (Req 8, 9; §10, §22; Tasks 6, 21, 22). _(3.1)_
+4. **Numbering + restore reuse risk** → dedicated sequence + high-water mark + reconciliation gate (Req 10, 15; §9, §16; Tasks 20, 56). _(3.5, 3.6)_
+5. **Snapshot relying on FKs** → full snapshot; reproduction reads snapshot only (Req 12; §11; D-010). _(3.7)_
+6. **Assets as mutable paths** → versioned assets pinned per invoice (Req 17; D-019). _(3.8)_
+7. **No template versioning** → template version on invoice (Req 18; D-020). _(3.9)_
+8. **Special GST treatments as 0%** → out of scope, validation error (Req 6.5; D-008). _(3.3)_
+9. **Coarse tasks** → fine-grained tasks with DoR/DoD + evidence. _(3.19, 3.20)_
+10. **Late printing/composition** → early spike (Phase 5) + early composition root (Phase 7). _(3.14, 3.21)_
 
-### Cross-checks
+### Corrections applied (UUID / transaction / restore pass)
 
-- **A. Requirements ↔ Design:** every requirement maps to a design section (design "Requirements Traceability").
-- **B. Design ↔ Tasks:** every design section has implementing task(s) (Phases 1–10).
-- **C/D. Invoice Rules ↔ Requirements/Design:** numbering, immutability, cancellation, duplication, tax, round-off, snapshot all represented.
-- **E/F. PDF Layout ↔ Design/Tasks:** section order, robustness, optional-field omission, pagination covered (design §17–§18; Tasks 31–42).
-- **G. Decisions ↔ specs:** each D-00x referenced by requirements/design/tasks.
-- **H. Open Questions ↔ unresolved behavior:** each Q-0xx has a safe interim and is referenced where it touches behavior.
-- **I. Runtime tech consistent:** Python/PySide6/SQLite/ReportLab everywhere; matches `pyproject.toml`.
-- **J. No Kiro-runtime language:** none present.
-- **K. No cloud/backend/web stack:** none present; offline verified by Task 58.
-- **L. Prior evaluation risks:** findings 3.1–3.22 all mapped to decisions/tasks.
-- **M. Requirements → tasks:** each major requirement has ≥1 task.
-- **N. Tasks → evidence:** each task states acceptance evidence + DoD.
-- **O. No undocumented assumptions:** assumptions live in DECISIONS/OPEN_QUESTIONS.
+11. **UUID4 identity** for all entities, app-generated, canonical TEXT storage, no AUTOINCREMENT (Req 30; §3-identity, §7; Tasks 4a, 5, 14, 17; D-023/D-024).
+12. **UUID distinct from invoice number** throughout (Req 30.9; §3; D-025).
+13. **Application-owned transactions**: numbering/repos participate, never self-commit (§9, §22; Tasks 20, 23; D-026).
+14. **SQLite locking** uses `BEGIN IMMEDIATE`; removed `FOR UPDATE` language (§9, §22; D-028).
+15. **Number issued only on commit**; rollback → not issued/reusable; committed → permanent even after cancel (Req 10.5/10.9; §9, §22; D-027).
+16. **Restore reconciliation uses pre-restore trusted state per scope**, not the older backup's internal mark (Req 15.3/15.5; §16; Tasks 54, 56; D-029; supersedes D-018 wording).
+17. **Explicit GST component rates** via `TaxRateConfig`; no blind halving (Req 6.4; §4, §5; Tasks 9, 46; D-030).
+18. **PDF reprint = content equivalence**, not byte-identical (Req 20.4; §18, §23; Tasks 42, 49; D-031).
+19. **Snapshot is authoritative** for finalized reproduction (Req 12.3/12.4; §7, §11; Task 24; D-010).
+20. **Asset resolution before Render DTO**; renderer never resolves assets/queries DB (Req 19.8; §17, §18; D-011).
+
+### Correction-pass cross-checks (A–T)
+
+- **A. UUID strategy consistent** across requirements/design/tasks — yes (Req 30; §3; Tasks 4a/5/14/17).
+- **B. No entity uses AUTOINCREMENT** — yes; UUID TEXT PKs only (§7; Task 14).
+- **C. UUID never confused with invoice number** — yes (Req 30.9; §3; D-025).
+- **D. Numbering stays human-readable business numbering** — yes (§9; Req 10).
+- **E. Finalization has one outer transaction** — yes (§22; Task 23).
+- **F. No repo/service commits inside finalization** — yes (§9, §22; Tasks 20, 23; D-026).
+- **G. SQLite locking language correct** — yes; `BEGIN IMMEDIATE`, no `FOR UPDATE` (§9, §22; D-028).
+- **H. Failed finalization does not issue a number** — yes (Req 10.9; §22; D-027).
+- **I. Successful commit permanently issues the number** — yes (Req 10.5; D-027).
+- **J. Restore uses trusted pre-restore state** — yes (§16; Tasks 54, 56; D-029).
+- **K. Multiple numbering scopes reconcile independently** — yes (§16; Req 15.5; Task 56).
+- **L. GST component rates explicit** — yes (§4/§5; D-030).
+- **M. PDF acceptance not binary-byte** — yes (§23; Tasks 42, 49; D-031).
+- **N. Snapshot authoritative for reproduction** — yes (§11; Task 24; D-010).
+- **O. Renderer never queries DB** — yes (§17, §18; D-011).
+- **P. Renderer never recalculates** — yes (§18; D-006/D-011).
+- **Q. Asset lookup before Render DTO** — yes (§17; D-011).
+- **R. Integration tests use controlled test dependencies** — yes; `tests/support/build_test_app.py` shares production wiring (Task 43).
+- **S. No new cloud/backend/web dependencies** — none introduced; offline invariant intact (Task 58).
+- **T. Existing traceability intact** — design "Requirements Traceability" + per-task requirement refs preserved.
+
+### Repository note
+
+During this pass I found that the previous session's `tasks.md` had been silently truncated at Task 42 (Phases 7–10 and this audit were missing despite a prior success report). Phases 7–10 (Tasks 43–63) and this audit were restored and updated with the correction-pass changes.
 
 ### Unresolved questions (tracked, not guessed)
 
-Q-001 future-dated policy; Q-002 number display format; Q-003 initial sequence/pad; Q-004 FY label/boundary; Q-005 GST rate UX; Q-006 multi-company; Q-007 default terms/declaration text; Q-008 template migration on reprint; Q-009 restore reconciliation UX; Q-010 cancelled watermark; Q-011 partial-payment tracking; Q-012 backdated numbering; Q-013 golden line-level source; Q-014 auto-backup policy; Q-015 Windows print approach.
+Q-001 future-dated policy; Q-002 number display format; Q-003 initial sequence/pad; Q-004 FY label/boundary; Q-005 GST rate UX; Q-006 multi-company; Q-007 default terms/declaration text; Q-008 template migration on reprint; Q-009 restore reconciliation UX (mechanism decided in D-029; only UX open); Q-010 cancelled watermark; Q-011 partial-payment tracking; Q-012 backdated numbering; Q-013 golden line-level source; Q-014 auto-backup policy; Q-015 Windows print approach.
 
 ### Architectural risks still remaining
 
-- **Windows print/preview** depends on spike evidence (Tasks 29–30); mitigated by scheduling it early.
-- **num2words INR formatting** may need a thin custom wrapper for exact paise phrasing; covered by Task 12 tests.
-- **High-water-mark reconciliation** assumes single-computer usage; correct for V1 scope (DECISIONS D-001) but would need rework if multi-device sync were ever added (Q-006).
-- **Golden line-level fixtures** remain aggregate-only until source PDFs are provided (Q-013).
+- Windows print/preview depends on spike evidence (Tasks 29–30).
+- num2words INR paise phrasing may need a thin wrapper (Task 12).
+- Pre-restore trusted-state capture must be stored durably outside the DB file and survive restore (Task 54) — correct for single-computer V1 (D-001); multi-device sync would need rework (Q-006).
+- Golden line-level fixtures remain aggregate-only until source PDFs are provided (Q-013).
 
 ### Task count
 
-64 tasks (IDs 0–63) across Phases 0–10.
+65 tasks: IDs 0–63 plus 4a (UUID entity-id strategy) across Phases 0–10.
