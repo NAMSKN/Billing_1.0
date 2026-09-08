@@ -122,7 +122,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** UI never decides tax type. _Requirements: 6, 11; DECISIONS D-008, D-009._
 
-- [ ] 9. Tax calculation
+- [x] 9. Tax calculation
   - **Objective:** Per-line CGST/SGST or IGST.
   - **Dependencies:** Task 7, 8.
   - **Scope:** `calculate_line_tax` consuming explicit `TaxRateConfig` component rates; never both component sets on one line; never halve total_rate to derive CGST/SGST.

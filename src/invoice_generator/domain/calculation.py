@@ -18,8 +18,13 @@ DECISIONS D-009), and only ``TaxTreatment.TAXABLE`` is supported in V1
 (DECISIONS D-008) — unsupported treatments raise rather than being silently
 taxed at 0%.
 
-Per-line tax (Task 9), tax grouping (Task 10), and totals/round-off (Task 11)
-extend this module in later tasks.
+Task 9 adds per-line tax: CGST/SGST (intra-state) or IGST (inter-state),
+computed from the explicit component rates in ``TaxRateConfig`` (DECISIONS
+D-030). CGST/SGST are never derived by halving the total rate, and a single
+line never carries both the CGST/SGST pair and IGST.
+
+Tax grouping (Task 10) and totals/round-off (Task 11) extend this module in
+later tasks.
 
 Functions are pure: no I/O, no clock, no global state.
 
@@ -33,6 +38,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from invoice_generator.domain.enums import TaxTreatment, TaxType
+from invoice_generator.domain.models import TaxRateConfig
 from invoice_generator.domain.money import quantize_money
 
 _HUNDRED = Decimal(100)
@@ -108,3 +114,39 @@ def determine_tax_type(
     if company == place:
         return TaxType.INTRA_STATE
     return TaxType.INTER_STATE
+
+
+@dataclass(frozen=True)
+class LineTax:
+    """Per-line tax component amounts, each quantized to 2 dp.
+
+    Only the components applicable to the invoice's tax type are non-zero: a
+    single normal supply line carries either CGST+SGST (intra-state) or IGST
+    (inter-state), never both (design section 4).
+    """
+
+    cgst: Decimal
+    sgst: Decimal
+    igst: Decimal
+
+
+def calculate_line_tax(
+    taxable: Decimal,
+    tax_type: TaxType,
+    config: TaxRateConfig,
+) -> LineTax:
+    """Compute per-line tax from explicit configured component rates.
+
+    Intra-state: ``cgst = taxable * config.cgst_rate / 100`` and
+    ``sgst = taxable * config.sgst_rate / 100`` (IGST zero). Inter-state:
+    ``igst = taxable * config.igst_rate / 100`` (CGST/SGST zero). CGST/SGST are
+    taken from the configured components — never derived by halving
+    ``total_rate`` (DECISIONS D-030). Each amount is quantized to 2 dp.
+    """
+    zero = quantize_money(Decimal(0))
+    if tax_type is TaxType.INTRA_STATE:
+        cgst = quantize_money(taxable * config.cgst_rate / _HUNDRED)
+        sgst = quantize_money(taxable * config.sgst_rate / _HUNDRED)
+        return LineTax(cgst=cgst, sgst=sgst, igst=zero)
+    igst = quantize_money(taxable * config.igst_rate / _HUNDRED)
+    return LineTax(cgst=zero, sgst=zero, igst=igst)
