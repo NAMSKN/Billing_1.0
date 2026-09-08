@@ -136,10 +136,11 @@ CREATE TABLE invoice_items (
     tax_treatment          TEXT NOT NULL DEFAULT 'TAXABLE'
                                CHECK (tax_treatment IN ('TAXABLE')),
     tax_rate_hundredths    INTEGER NOT NULL DEFAULT 0,
-    taxable_paise          INTEGER NOT NULL DEFAULT 0,
-    cgst_paise             INTEGER NOT NULL DEFAULT 0,
-    sgst_paise             INTEGER NOT NULL DEFAULT 0,
-    igst_paise             INTEGER NOT NULL DEFAULT 0
+    -- Calculated amounts are NULL until the engine computes them (draft lines).
+    taxable_paise          INTEGER,
+    cgst_paise             INTEGER,
+    sgst_paise             INTEGER,
+    igst_paise             INTEGER
 );
 
 CREATE INDEX ix_invoice_items_invoice_id ON invoice_items (invoice_id);

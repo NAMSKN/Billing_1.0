@@ -196,7 +196,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** mypy verifies protocol conformance; tests pass.
   - **DoD:** services can depend on ports. _Requirements: 23; DECISIONS D-021._
 
-- [ ] 17. Repository implementations
+- [x] 17. Repository implementations
   - **Objective:** SQLite repos with paise/scale conversion.
   - **Dependencies:** Task 14, 16.
   - **Scope:** CRUD + queries; conversions at boundary; parameterized SQL.
