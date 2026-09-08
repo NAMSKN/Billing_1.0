@@ -270,7 +270,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** immutability test passes.
   - **DoD:** snapshot is authoritative; no live-master join for reproduction. _Requirements: 12; DECISIONS D-010._
 
-- [ ] 25. Cancellation
+- [x] 25. Cancellation
   - **Objective:** Cancel preserving record + number.
   - **Dependencies:** Task 23.
   - **Scope:** status CANCELLED, timestamp, reason; number not released; optional replacement link.

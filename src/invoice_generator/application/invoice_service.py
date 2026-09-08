@@ -1,8 +1,9 @@
 """Invoice lifecycle service.
 
-Orchestrates invoice use cases against repository ports. This task (Task 21)
-implements the **draft** lifecycle only; finalization, cancellation,
-duplication, and payment status are added in later tasks (22-27).
+Orchestrates invoice use cases against repository ports: draft lifecycle
+(Task 21), finalization validation and atomic finalization (Tasks 22-23),
+finalized snapshots (Task 24), and cancellation (Task 25). Duplication and
+payment status follow in Tasks 26-27.
 
 Transaction ownership (DECISIONS D-026): the service owns the transaction
 boundary and commits/rolls back; the repository participates and never commits
@@ -23,7 +24,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 
 from invoice_generator.application.numbering_service import NumberingService
 from invoice_generator.application.settings_service import SettingsService
@@ -317,6 +318,41 @@ class InvoiceService:
                 )
             )
         return tuple(computed), inputs
+
+    def cancel(
+        self,
+        invoice_id: uuid.UUID,
+        reason: str,
+        *,
+        when: datetime | None = None,
+        replacement_invoice_id: uuid.UUID | None = None,
+    ) -> Invoice:
+        """Cancel a finalized invoice, preserving the record (design section 13).
+
+        Sets status CANCELLED with a cancellation timestamp and reason; keeps
+        the same UUID, invoice number, and snapshot; never hard-deletes; and may
+        record a replacement invoice (DECISIONS D-016, D-025). ``when`` should be
+        supplied by the caller for determinism; it defaults to the current UTC
+        time. Only a FINALIZED invoice may be cancelled.
+        """
+        invoice = self._invoices.get(invoice_id)
+        if invoice is None:
+            raise InvoiceServiceError("invoice not found")
+        if invoice.status is not InvoiceStatus.FINALIZED:
+            raise InvoiceServiceError("only a FINALIZED invoice can be cancelled")
+
+        timestamp = (when if when is not None else datetime.now(UTC)).isoformat()
+        cancelled = invoice.model_copy(
+            update={
+                "status": InvoiceStatus.CANCELLED,
+                "cancelled_at": timestamp,
+                "cancel_reason": reason,
+                "replacement_invoice_id": replacement_invoice_id,
+            }
+        )
+        with UnitOfWork(self._conn):
+            self._invoices.save(cancelled)
+        return cancelled
 
     def delete_draft(self, invoice_id: uuid.UUID) -> None:
         """Delete a draft and (via cascade) its line items.
