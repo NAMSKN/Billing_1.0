@@ -57,7 +57,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** 12 tests pass; ruff + mypy clean.
   - **DoD:** met (verified previously). Revisit only if metadata changes.
 
-- [ ] 3. Domain enums and types
+- [x] 3. Domain enums and types
   - **Objective:** Define lifecycle/payment/tax enums and `TaxTreatment`.
   - **Dependencies:** Task 2.
   - **Scope:** `InvoiceStatus`, `PaymentStatus`, `TaxType`, `TaxTreatment` (TAXABLE only in V1).
