@@ -225,7 +225,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** formatter configurable. _Requirements: 10.1, 10.3, 10.7; OPEN_QUESTIONS Q-002/003/004._
 
-- [ ] 20. Safe sequence allocation
+- [x] 20. Safe sequence allocation
   - **Objective:** Sequence allocation that participates in the caller's transaction; never MAX(), never its own COMMIT.
   - **Dependencies:** Task 19.
   - **Scope:** `numbering_service.allocate(conn/uow)` reads/updates the sequence row **within the caller's `BEGIN IMMEDIATE` transaction**; advances per-scope high-water; no BEGIN/COMMIT inside; no `SELECT ... FOR UPDATE`; contention (`BUSY`) retry left to the use case.
