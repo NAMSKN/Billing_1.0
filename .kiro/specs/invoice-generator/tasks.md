@@ -178,7 +178,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** integration tests pass.
   - **DoD:** no REAL money columns; no INTEGER surrogate keys. _Requirements: 23, 30; DECISIONS D-004, D-023, D-024._
 
-- [ ] 15. Migrations
+- [x] 15. Migrations
   - **Objective:** schema_version-based migration runner.
   - **Dependencies:** Task 14.
   - **Scope:** apply pending migrations at startup; never overwrite on version change.
