@@ -104,7 +104,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 2 — Calculation Core
 
-- [ ] 7. Line-item calculation
+- [x] 7. Line-item calculation
   - **Objective:** Pure gross/discount/taxable per line.
   - **Dependencies:** Task 4, 5.
   - **Scope:** `calculate_line` producing gross, discount, taxable with defined quantization.
