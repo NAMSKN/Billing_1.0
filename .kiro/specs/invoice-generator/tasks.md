@@ -84,7 +84,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** unit tests pass.
   - **DoD:** no AUTOINCREMENT anywhere; UUID distinct from invoice number. _Requirements: 30; DECISIONS D-023, D-024, D-025._
 
-- [ ] 5. Domain models
+- [x] 5. Domain models
   - **Objective:** Core immutable models with UUID ids.
   - **Dependencies:** Task 4, 4a.
   - **Scope:** `Company`, `Customer`, `InvoiceLine`, `Invoice`, `InvoiceTotals`, `TaxSummaryRow`, `TaxRateConfig`, snapshot type; every entity has a UUID `id`; `Invoice.id` (UUID) distinct from `invoice_number` (nullable); bill-to/ship-to distinct.
