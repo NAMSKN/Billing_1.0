@@ -234,7 +234,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** integration tests pass.
   - **DoD:** MAX() not used; allocator never commits its own tx. _Requirements: 10; DECISIONS D-012, D-026, D-027, D-028; OPEN_QUESTIONS Q-012._
 
-- [ ] 21. Draft lifecycle
+- [x] 21. Draft lifecycle
   - **Objective:** Create/update/delete drafts with permissive validation.
   - **Dependencies:** Task 6, 17.
   - **Scope:** `invoice_service` draft ops; number stays NULL.
