@@ -243,7 +243,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** draft path never enforces finalize rules. _Requirements: 8._
 
-- [ ] 22. Finalization validation
+- [x] 22. Finalization validation
   - **Objective:** Strict, ordered validation gate.
   - **Dependencies:** Task 6, 21.
   - **Scope:** strict validator ordering per Req 9.1; blocking errors.

@@ -23,12 +23,21 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+from datetime import date
 
 from invoice_generator.domain.enums import InvoiceStatus
 from invoice_generator.domain.ids import IdGenerator, Uuid4Generator
 from invoice_generator.domain.models import Invoice
-from invoice_generator.domain.repositories import InvoiceRepository
-from invoice_generator.domain.validation import ValidationResult, validate_draft
+from invoice_generator.domain.repositories import (
+    CompanyRepository,
+    CustomerRepository,
+    InvoiceRepository,
+)
+from invoice_generator.domain.validation import (
+    ValidationResult,
+    validate_draft,
+    validate_for_finalization,
+)
 
 
 class InvoiceServiceError(Exception):
@@ -40,10 +49,14 @@ class InvoiceService:
         self,
         connection: sqlite3.Connection,
         invoice_repository: InvoiceRepository,
+        company_repository: CompanyRepository | None = None,
+        customer_repository: CustomerRepository | None = None,
         id_generator: IdGenerator | None = None,
     ) -> None:
         self._conn = connection
         self._invoices = invoice_repository
+        self._companies = company_repository
+        self._customers = customer_repository
         self._ids: IdGenerator = id_generator if id_generator is not None else Uuid4Generator()
 
     def get(self, invoice_id: uuid.UUID) -> Invoice | None:
@@ -84,6 +97,51 @@ class InvoiceService:
         with self._conn:
             self._invoices.save(invoice)
         return result
+
+    def check_finalization_readiness(
+        self,
+        invoice: Invoice,
+        *,
+        invoice_date: date,
+        due_date: date | None = None,
+        today: date | None = None,
+    ) -> ValidationResult:
+        """Run the strict finalization validation gate (Req 9.1).
+
+        Loads the invoice's company (active) and customer, then applies
+        :func:`validate_for_finalization`, which enforces the required
+        company/customer/date/place-of-supply/line rules in order and returns
+        **blocking** issues. This is distinct from the permissive
+        :meth:`save_draft` path (finding 3.1) and performs no number allocation
+        or persistence — that is atomic finalization (Task 23).
+
+        Raises :class:`InvoiceServiceError` if the required master repositories
+        were not provided, or if the invoice/customer cannot be resolved.
+        """
+        if self._companies is None or self._customers is None:
+            raise InvoiceServiceError(
+                "company and customer repositories are required for finalization"
+            )
+        if invoice.status is not InvoiceStatus.DRAFT:
+            raise InvoiceServiceError("only a DRAFT invoice can be finalized")
+
+        company = self._companies.get_active()
+        if company is None:
+            raise InvoiceServiceError("no active company is configured")
+        if invoice.customer_id is None:
+            raise InvoiceServiceError("invoice has no customer selected")
+        customer = self._customers.get(invoice.customer_id)
+        if customer is None:
+            raise InvoiceServiceError("selected customer does not exist")
+
+        return validate_for_finalization(
+            invoice,
+            company=company,
+            customer=customer,
+            invoice_date=invoice_date,
+            due_date=due_date,
+            today=today,
+        )
 
     def delete_draft(self, invoice_id: uuid.UUID) -> None:
         """Delete a draft and (via cascade) its line items.
