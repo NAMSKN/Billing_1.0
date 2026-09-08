@@ -216,7 +216,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 4 — Invoice Numbering / Lifecycle
 
-- [ ] 19. Financial-year / numbering configuration
+- [x] 19. Financial-year / numbering configuration
   - **Objective:** Configurable numbering (prefix, pad, start, FY scheme).
   - **Dependencies:** Task 17.
   - **Scope:** numbering_config persistence + formatter (safe interims for Q-002/Q-003/Q-004).
