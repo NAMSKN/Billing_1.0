@@ -113,7 +113,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** exact Decimal assertions pass.
   - **DoD:** pure, no I/O. _Requirements: 7.1._
 
-- [ ] 8. Tax determination
+- [x] 8. Tax determination
   - **Objective:** Derive TaxType from company state vs Place of Supply.
   - **Dependencies:** Task 3, 5.
   - **Scope:** `determine_tax_type`; reject unsupported treatments.
