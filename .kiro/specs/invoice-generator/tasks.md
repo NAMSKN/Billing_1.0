@@ -93,7 +93,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** unit tests pass; mypy strict clean.
   - **DoD:** models consumed by services/engine later. _Requirements: 1, 2, 3, 4, 12, 30; DECISIONS D-023, D-025, D-030._
 
-- [ ] 6. Validation infrastructure (draft vs finalize)
+- [x] 6. Validation infrastructure (draft vs finalize)
   - **Objective:** Separate permissive draft validation from strict finalization validation.
   - **Dependencies:** Task 5.
   - **Scope:** GSTIN/email/IFSC format validators (offline); line/invoice validators; blocking vs warning classification.
