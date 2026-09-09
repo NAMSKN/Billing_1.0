@@ -308,7 +308,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** generated sample PDF + passing test.
   - **DoD:** ReportLab pipeline works. _Requirements: 26.1._
 
-- [ ] 29. Windows preview/open spike
+- [x] 29. Windows preview/open spike
   - **Objective:** Prove opening/previewing a PDF on Windows.
   - **Dependencies:** Task 28.
   - **Scope:** open the sample via default viewer; document approach.

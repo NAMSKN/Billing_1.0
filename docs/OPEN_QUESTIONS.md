@@ -112,3 +112,8 @@
 - **Why open:** Must be validated by the early printing spike (tasks Phase 5) before committing.
 - **Blocks:** PrintService adapter implementation choice.
 - **Safe interim:** Prove the simplest reliable path (open in default viewer + OS print) during the spike; choose based on evidence, not assumption.
+
+- **Spike notes — preview/open (Task 29):**
+  - **Approach chosen:** open/preview via `os.startfile(path)` on Windows, which launches the PDF in the user's associated default viewer. No extra dependency required. The opener is injectable so the code path is unit-testable without launching a GUI.
+  - **Evidence:** `python -m spikes.windows_preview` was run on the target Windows machine against `spikes/out/sample_invoice.pdf`; the call returned exit code `0` with no exception, i.e. the default-viewer launch succeeded. (GUI rendering itself cannot be asserted in CI.)
+  - **Status:** the **preview/open** decision is settled (use `os.startfile`). The **printing** path is still open pending the printing spike (Task 30); the `PrintService` adapter choice will be finalized there. `spikes/windows_preview.py` and `spikes/windows_print.py` inform the eventual `infrastructure/printing/` adapter.
