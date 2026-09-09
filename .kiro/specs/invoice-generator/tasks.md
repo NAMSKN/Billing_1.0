@@ -355,7 +355,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** no clipping. _Requirements: 19.2, 19.3._
 
-- [ ] 34. References / logistics
+- [x] 34. References / logistics
   - **Objective:** Optional reference grid.
   - **Dependencies:** Task 31.
   - **Scope:** render only populated key/values.
