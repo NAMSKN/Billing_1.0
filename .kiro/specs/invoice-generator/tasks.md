@@ -317,7 +317,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** documented result of opening on Windows.
   - **DoD:** approach chosen with evidence. _Requirements: 26; OPEN_QUESTIONS Q-015._
 
-- [ ] 30. Windows printing spike
+- [x] 30. Windows printing spike
   - **Objective:** Prove printing to a Windows printer.
   - **Dependencies:** Task 28.
   - **Scope:** OS print path; basic printer compatibility check.
