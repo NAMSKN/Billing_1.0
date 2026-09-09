@@ -328,7 +328,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 6 — Production PDF
 
-- [ ] 31. Render DTO
+- [x] 31. Render DTO
   - **Objective:** Immutable render view model + builder.
   - **Dependencies:** Task 24.
   - **Scope:** `render_dto.py` + `pdf_service.build_dto(snapshot)`; preformatted strings; omit empty optionals; resolve pinned assets.
