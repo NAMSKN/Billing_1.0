@@ -400,7 +400,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** graceful omission. _Requirements: 19.5, 20._
 
-- [ ] 39. Notes / terms / declaration / signature
+- [x] 39. Notes / terms / declaration / signature
   - **Objective:** Footer content blocks.
   - **Dependencies:** Task 31.
   - **Scope:** notes, terms, declaration, authorized signatory + pinned signature asset.

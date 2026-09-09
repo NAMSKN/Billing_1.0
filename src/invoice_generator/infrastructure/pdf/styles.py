@@ -191,3 +191,38 @@ def words_style() -> ParagraphStyle:
         alignment=TA_LEFT,
         wordWrap="CJK",
     )
+
+
+def legal_style() -> ParagraphStyle:
+    """Smaller readable font for terms/declaration (PDF_LAYOUT sections 23-24)."""
+    return ParagraphStyle(
+        "Legal",
+        fontName=FONT_REGULAR,
+        fontSize=MIN_BODY_FONT_PT,
+        leading=10,
+        textColor=COLOR_MUTED,
+        alignment=TA_LEFT,
+        wordWrap="CJK",
+    )
+
+
+def signature_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "Signature",
+        fontName=FONT_REGULAR,
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_TEXT,
+        alignment=TA_RIGHT,
+    )
+
+
+def signature_bold_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "SignatureBold",
+        fontName=FONT_BOLD,
+        fontSize=9.5,
+        leading=12,
+        textColor=COLOR_TEXT,
+        alignment=TA_RIGHT,
+    )
