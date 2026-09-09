@@ -337,7 +337,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** renderer input fully prepared. _Requirements: 19.8; DECISIONS D-011._
 
-- [ ] 32. Header / metadata components
+- [x] 32. Header / metadata components
   - **Objective:** Header/branding + invoice metadata block.
   - **Dependencies:** Task 28, 31.
   - **Scope:** company block, TAX INVOICE, number/date/due/PoS/terms.
