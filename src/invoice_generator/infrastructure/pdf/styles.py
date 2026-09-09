@@ -108,3 +108,39 @@ def body_style() -> ParagraphStyle:
         alignment=TA_LEFT,
         wordWrap="CJK",  # break very long unbroken tokens instead of clipping
     )
+
+
+def table_header_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "TableHeader",
+        fontName=FONT_BOLD,
+        fontSize=8.5,
+        leading=10,
+        textColor=COLOR_TEXT,
+        alignment=TA_LEFT,
+    )
+
+
+def table_cell_style(alignment: int = TA_LEFT) -> ParagraphStyle:
+    """A compact, wrapping table-cell style (never below the readable floor)."""
+    return ParagraphStyle(
+        "TableCell",
+        fontName=FONT_REGULAR,
+        fontSize=8.5,
+        leading=10.5,
+        textColor=COLOR_TEXT,
+        alignment=alignment,
+        wordWrap="CJK",
+    )
+
+
+def table_cell_bold_style(alignment: int = TA_LEFT) -> ParagraphStyle:
+    return ParagraphStyle(
+        "TableCellBold",
+        fontName=FONT_BOLD,
+        fontSize=8.5,
+        leading=10.5,
+        textColor=COLOR_TEXT,
+        alignment=alignment,
+        wordWrap="CJK",
+    )

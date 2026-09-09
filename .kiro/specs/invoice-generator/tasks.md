@@ -364,7 +364,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** no empty labels. _Requirements: 19.6; finding 3.17._
 
-- [ ] 35. Line-item table
+- [x] 35. Line-item table
   - **Objective:** Mould/machining table.
   - **Dependencies:** Task 31.
   - **Scope:** columns #, Job/Mould, Operation, Description/Spec, HSN/SAC, Qty, Unit, Rate, Discount, Amount; numeric right-aligned.
