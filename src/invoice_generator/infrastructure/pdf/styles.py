@@ -226,3 +226,37 @@ def signature_bold_style() -> ParagraphStyle:
         textColor=COLOR_TEXT,
         alignment=TA_RIGHT,
     )
+
+
+def all_component_styles() -> list[ParagraphStyle]:
+    """Return every paragraph style used by the invoice components.
+
+    Used to guard the readable-font floor (Req 19.9): the renderer never
+    dynamically shrinks text to force content onto a page, so ensuring each
+    defined style is at or above :data:`MIN_BODY_FONT_PT` guarantees no
+    sub-readable text is ever produced.
+    """
+    return [
+        company_name_style(),
+        company_detail_style(),
+        invoice_title_style(),
+        metadata_style(),
+        section_heading_style(),
+        party_name_style(),
+        body_style(),
+        table_header_style(),
+        table_cell_style(),
+        table_cell_bold_style(),
+        totals_label_style(),
+        totals_value_style(),
+        grand_total_style(),
+        words_style(),
+        legal_style(),
+        signature_style(),
+        signature_bold_style(),
+    ]
+
+
+def min_component_font_size() -> float:
+    """Return the smallest font size across all component styles."""
+    return min(float(style.fontSize) for style in all_component_styles())

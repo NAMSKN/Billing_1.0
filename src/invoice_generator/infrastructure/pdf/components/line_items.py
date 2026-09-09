@@ -53,7 +53,16 @@ def build_line_items(dto: InvoiceRenderDTO) -> list[Flowable]:
     for line in dto.lines:
         rows.append(_line_row(line))
 
-    table = Table(rows, colWidths=list(_COL_WIDTHS), repeatRows=1)
+    # splitInRow=1 lets a single oversized row (e.g. a very long specification)
+    # split across pages instead of raising a LayoutError, so extreme technical
+    # content is never clipped (Req 19.3; PDF_LAYOUT section 32).
+    table = Table(
+        rows,
+        colWidths=list(_COL_WIDTHS),
+        repeatRows=1,
+        splitByRow=1,
+        splitInRow=1,
+    )
     table.setStyle(
         TableStyle(
             [

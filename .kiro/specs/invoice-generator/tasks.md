@@ -418,7 +418,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** rows not split where avoidable. _Requirements: 19.3._
 
-- [ ] 41. Long-content handling
+- [x] 41. Long-content handling
   - **Objective:** Robustness for extreme content.
   - **Dependencies:** Task 40.
   - **Scope:** very long descriptions/names/addresses; readable-minimum font floor.
