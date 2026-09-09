@@ -373,7 +373,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** technical text never clipped. _Requirements: 19.3, 19.4._
 
-- [ ] 36. Tax summary
+- [x] 36. Tax summary
   - **Objective:** Composite-key tax summary block.
   - **Dependencies:** Task 10, 31.
   - **Scope:** render grouped summary reconciling to totals.
