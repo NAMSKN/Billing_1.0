@@ -65,5 +65,5 @@ warn_unused_ignores = true
 # imports (scoped override, not a blanket suppression) so strict mode still
 # applies to all of our own code.
 [[tool.mypy.overrides]]
-module = ["num2words", "reportlab.*"]
+module = ["num2words", "reportlab.*", "qrcode"]
 ignore_missing_imports = true

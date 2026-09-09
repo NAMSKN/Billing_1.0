@@ -391,7 +391,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** grand total most prominent. _Requirements: 19.7, 22._
 
-- [ ] 38. Payment / QR
+- [x] 38. Payment / QR
   - **Objective:** Bank details + optional UPI QR.
   - **Dependencies:** Task 31.
   - **Scope:** render bank block; QR only if configured.
