@@ -31,15 +31,27 @@ _SIG_MAX_W = 45 * mm
 _SIG_MAX_H = 22 * mm
 
 
-def build_footer_blocks(dto: InvoiceRenderDTO) -> list[Flowable]:
-    """Return the footer flowables (notes/terms/declaration/signature)."""
+def build_text_blocks(dto: InvoiceRenderDTO) -> list[Flowable]:
+    """Return the notes/terms/declaration flowables (these may flow/paginate)."""
     flowables: list[Flowable] = []
-
     flowables.extend(_text_block("Notes", dto.notes, body_style()))
     flowables.extend(_text_block("Terms & Conditions", dto.terms, legal_style()))
     flowables.extend(_text_block("Declaration", dto.declaration, legal_style()))
-    flowables.extend(_signature_block(dto))
     return flowables
+
+
+def build_signature_block(dto: InvoiceRenderDTO) -> list[Flowable]:
+    """Return the signature block flowables (kept together by the renderer)."""
+    return _signature_block(dto)
+
+
+def build_footer_blocks(dto: InvoiceRenderDTO) -> list[Flowable]:
+    """Return all footer flowables (notes/terms/declaration then signature).
+
+    Convenience for tests/simple callers. The renderer composes the pieces
+    separately so only the signature block is kept together (Task 40).
+    """
+    return [*build_text_blocks(dto), *build_signature_block(dto)]
 
 
 def _text_block(heading: str, content: str, content_style: ParagraphStyle) -> list[Flowable]:

@@ -409,7 +409,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** from snapshot only. _Requirements: 12.1, 17.5, 19.2._
 
-- [ ] 40. Pagination
+- [x] 40. Pagination
   - **Objective:** Multi-page behavior.
   - **Dependencies:** Task 35.
   - **Scope:** BaseDocTemplate; repeat header; keep totals/signature together; page numbers.
