@@ -346,7 +346,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** component test passes.
   - **DoD:** matches PDF_LAYOUT header. _Requirements: 19.2, 19.5._
 
-- [ ] 33. Party sections
+- [x] 33. Party sections
   - **Objective:** Bill-to / ship-to blocks.
   - **Dependencies:** Task 31.
   - **Scope:** distinct blocks even when identical.

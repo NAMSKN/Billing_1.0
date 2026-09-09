@@ -72,3 +72,39 @@ def metadata_style() -> ParagraphStyle:
         textColor=COLOR_TEXT,
         alignment=TA_RIGHT,
     )
+
+
+def section_heading_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "SectionHeading",
+        fontName=FONT_BOLD,
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_TEXT,
+        alignment=TA_LEFT,
+        spaceAfter=2,
+    )
+
+
+def party_name_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "PartyName",
+        fontName=FONT_BOLD,
+        fontSize=9.5,
+        leading=12,
+        textColor=COLOR_TEXT,
+        alignment=TA_LEFT,
+    )
+
+
+def body_style() -> ParagraphStyle:
+    """General body text; wraps long content (Req 19.3), stays readable."""
+    return ParagraphStyle(
+        "Body",
+        fontName=FONT_REGULAR,
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_TEXT,
+        alignment=TA_LEFT,
+        wordWrap="CJK",  # break very long unbroken tokens instead of clipping
+    )
