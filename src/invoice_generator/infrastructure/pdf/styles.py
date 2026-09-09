@@ -25,6 +25,7 @@ FONT_BOLD = "Helvetica-Bold"
 COLOR_TEXT = colors.black
 COLOR_MUTED = colors.HexColor("#444444")
 COLOR_RULE = colors.HexColor("#999999")
+COLOR_TOTAL_BG = colors.HexColor("#E8E8E8")  # subtle grand-total highlight (grayscale-safe)
 
 # Minimum readable body size floor (Req 19.9); components must not go below it.
 MIN_BODY_FONT_PT = 8.0
@@ -142,5 +143,51 @@ def table_cell_bold_style(alignment: int = TA_LEFT) -> ParagraphStyle:
         leading=10.5,
         textColor=COLOR_TEXT,
         alignment=alignment,
+        wordWrap="CJK",
+    )
+
+
+def totals_label_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "TotalsLabel",
+        fontName=FONT_REGULAR,
+        fontSize=9,
+        leading=13,
+        textColor=COLOR_TEXT,
+        alignment=TA_RIGHT,
+    )
+
+
+def totals_value_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "TotalsValue",
+        fontName=FONT_REGULAR,
+        fontSize=9,
+        leading=13,
+        textColor=COLOR_TEXT,
+        alignment=TA_RIGHT,
+    )
+
+
+def grand_total_style() -> ParagraphStyle:
+    """The most prominent monetary style on the page (Req 19.7)."""
+    return ParagraphStyle(
+        "GrandTotal",
+        fontName=FONT_BOLD,
+        fontSize=13,
+        leading=16,
+        textColor=COLOR_TEXT,
+        alignment=TA_RIGHT,
+    )
+
+
+def words_style() -> ParagraphStyle:
+    return ParagraphStyle(
+        "Words",
+        fontName=FONT_REGULAR,
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_TEXT,
+        alignment=TA_LEFT,
         wordWrap="CJK",
     )

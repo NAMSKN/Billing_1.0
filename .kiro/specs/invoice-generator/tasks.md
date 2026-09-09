@@ -382,7 +382,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** consumes DTO only. _Requirements: 7.3, 19.2._
 
-- [ ] 37. Totals / words
+- [x] 37. Totals / words
   - **Objective:** Totals block + amounts in words.
   - **Dependencies:** Task 11, 12, 31.
   - **Scope:** prominent grand total; amount + tax in words.
