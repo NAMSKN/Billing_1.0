@@ -299,7 +299,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 5 — Early PDF / Printing Spike
 
-- [ ] 28. ReportLab proof of concept
+- [x] 28. ReportLab proof of concept
   - **Objective:** Prove A4 PDF generation.
   - **Dependencies:** Task 2.
   - **Scope:** minimal sample invoice PDF from a hardcoded DTO (spike, not production layout).

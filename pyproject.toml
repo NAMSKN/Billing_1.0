@@ -37,7 +37,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+# "src" for the application package; "." so exploratory spikes/ is importable
+# by spike tests (spikes are not part of the shipped package).
+pythonpath = ["src", "."]
 addopts = "-ra"
 markers = [
     "unit: fast, isolated unit tests",

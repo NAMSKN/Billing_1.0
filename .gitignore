@@ -30,6 +30,9 @@ htmlcov/
 /logs/
 *.log
 
+# Generated spike artifacts
+/spikes/out/
+
 # Editor / OS
 .vscode/
 .idea/
