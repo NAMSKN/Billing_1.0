@@ -27,6 +27,8 @@ import uuid
 from datetime import date, datetime
 
 from invoice_generator.application.clock import Clock, SystemClock
+from invoice_generator.application.errors import ApplicationError
+from invoice_generator.application.errors import FinalizationError as _BaseFinalizationError
 from invoice_generator.application.numbering_service import NumberingService
 from invoice_generator.application.settings_service import SettingsService
 from invoice_generator.application.unit_of_work import UnitOfWork
@@ -61,16 +63,23 @@ from invoice_generator.domain.validation import (
 )
 
 
-class FinalizationError(Exception):
-    """Raised when finalization cannot proceed (validation or state errors)."""
+class FinalizationError(_BaseFinalizationError):
+    """Raised when finalization cannot proceed (validation or state errors).
+
+    Carries the blocking :class:`ValidationResult` when validation failed, so
+    the UI can highlight fields. Inherits the friendly ``user_message`` from the
+    canonical application error (Task 45).
+    """
 
     def __init__(self, message: str, result: ValidationResult | None = None) -> None:
         super().__init__(message)
         self.result = result
 
 
-class InvoiceServiceError(Exception):
+class InvoiceServiceError(ApplicationError):
     """Raised for invalid invoice-service operations (e.g. wrong lifecycle state)."""
+
+    default_user_message = "This action is not allowed for the invoice's current state."
 
 
 class InvoiceService:

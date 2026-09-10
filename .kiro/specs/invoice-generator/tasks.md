@@ -456,7 +456,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** smoke test passes.
   - **DoD:** UI has no SQL/calculations. _Requirements: 25.1, 25.7._
 
-- [ ] 45. Error / notification handling
+- [x] 45. Error / notification handling
   - **Objective:** UI error boundary.
   - **Dependencies:** Task 43.
   - **Scope:** map typed errors → friendly messages; log technical detail (may include UUIDs, never secrets/PII).

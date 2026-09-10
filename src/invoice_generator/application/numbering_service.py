@@ -30,6 +30,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 
+from invoice_generator.application.errors import NumberingError
 from invoice_generator.domain.models import SequenceState
 from invoice_generator.domain.numbering import (
     NumberingConfig,
@@ -38,10 +39,6 @@ from invoice_generator.domain.numbering import (
     format_invoice_number,
 )
 from invoice_generator.domain.repositories import SequenceRepository
-
-
-class NumberingError(Exception):
-    """Raised when an invoice number cannot be safely allocated."""
 
 
 @dataclass(frozen=True)
