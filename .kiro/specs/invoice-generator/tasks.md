@@ -483,7 +483,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** no SQL in widgets. _Requirements: 2, 30.7._
 
-- [ ] 48. Create/edit invoice UI
+- [x] 48. Create/edit invoice UI
   - **Objective:** Invoice form with live totals.
   - **Dependencies:** Task 44, 47, 7–12.
   - **Files:** `ui/invoices/invoice_form.py`, `ui/common/line_item_table.py`, tests.
