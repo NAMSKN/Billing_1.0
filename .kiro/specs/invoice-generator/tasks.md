@@ -447,7 +447,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** integration test passes.
   - **DoD:** no service locator/global container; test factory shares production wiring. _Requirements: 25, 30; DECISIONS D-021, D-023._
 
-- [ ] 44. PySide6 application shell
+- [x] 44. PySide6 application shell
   - **Objective:** MainWindow + navigation + worker-thread scaffolding.
   - **Dependencies:** Task 43.
   - **Scope:** window, 5-screen navigation shells, thread helper for long ops.
