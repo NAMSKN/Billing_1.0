@@ -475,7 +475,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** graceful missing-asset handling. _Requirements: 1, 17, 10, 6.4; DECISIONS D-030._
 
-- [ ] 47. Customer UI
+- [x] 47. Customer UI
   - **Objective:** Customer list/add/edit/archive.
   - **Dependencies:** Task 44.
   - **Files:** `ui/customers/`, tests.
