@@ -467,7 +467,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 8 — UI
 
-- [ ] 46. Company / settings UI
+- [x] 46. Company / settings UI
   - **Objective:** Company, bank, assets, numbering, tax defaults, notes/terms, paths.
   - **Dependencies:** Task 44, 11(company svc), 19.
   - **Files:** `ui/settings/`, tests (offscreen).
