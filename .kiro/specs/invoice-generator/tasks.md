@@ -427,7 +427,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** test passes.
   - **DoD:** readable minimum enforced. _Requirements: 19.3, 19.9._
 
-- [ ] 42. PDF regression tests
+- [x] 42. PDF regression tests
   - **Objective:** Programmatic PDF acceptance incl golden.
   - **Dependencies:** Task 37, 40.
   - **Scope:** end-to-end render of golden invoices; assert text/values; reprint asserts **content equivalence** (extracted text + structured values), never byte-for-byte PDF equality.
