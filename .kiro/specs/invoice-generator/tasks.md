@@ -438,7 +438,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 7 — Application Shell
 
-- [ ] 43. Composition root
+- [x] 43. Composition root
   - **Objective:** Wire dependencies in one place; provide a reusable test composition factory.
   - **Dependencies:** Task 17, 23, 31.
   - **Scope:** `bootstrap.py` (connection→repos→services→controllers; constructor injection; injectable IdGenerator + clock). Plus `tests/support/build_test_app.py` reusing the same wiring so integration tests never hand-roll incompatible wiring.

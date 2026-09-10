@@ -24,8 +24,9 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
+from invoice_generator.application.clock import Clock, SystemClock
 from invoice_generator.application.numbering_service import NumberingService
 from invoice_generator.application.settings_service import SettingsService
 from invoice_generator.application.unit_of_work import UnitOfWork
@@ -86,6 +87,7 @@ class InvoiceService:
         numbering_service: NumberingService | None = None,
         settings_service: SettingsService | None = None,
         id_generator: IdGenerator | None = None,
+        clock: Clock | None = None,
     ) -> None:
         self._conn = connection
         self._invoices = invoice_repository
@@ -94,6 +96,7 @@ class InvoiceService:
         self._numbering = numbering_service
         self._settings = settings_service
         self._ids: IdGenerator = id_generator if id_generator is not None else Uuid4Generator()
+        self._clock: Clock = clock if clock is not None else SystemClock()
 
     def get(self, invoice_id: uuid.UUID) -> Invoice | None:
         return self._invoices.get(invoice_id)
@@ -341,7 +344,7 @@ class InvoiceService:
         if invoice.status is not InvoiceStatus.FINALIZED:
             raise InvoiceServiceError("only a FINALIZED invoice can be cancelled")
 
-        timestamp = (when if when is not None else datetime.now(UTC)).isoformat()
+        timestamp = (when if when is not None else self._clock.now()).isoformat()
         cancelled = invoice.model_copy(
             update={
                 "status": InvoiceStatus.CANCELLED,
