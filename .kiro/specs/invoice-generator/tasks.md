@@ -499,7 +499,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** one rendering implementation. _Requirements: 20; DECISIONS D-011, D-027, D-031._
 
-- [ ] 50. Invoice history
+- [x] 50. Invoice history
   - **Objective:** History list + search/filter + actions.
   - **Dependencies:** Task 44, 17.
   - **Files:** `ui/invoices/invoice_list.py`, tests.

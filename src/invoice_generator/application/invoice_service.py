@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+from collections.abc import Sequence
 from datetime import date, datetime
 
 from invoice_generator.application.clock import Clock, SystemClock
@@ -109,6 +110,10 @@ class InvoiceService:
 
     def get(self, invoice_id: uuid.UUID) -> Invoice | None:
         return self._invoices.get(invoice_id)
+
+    def list_summaries(self) -> Sequence[Invoice]:
+        """Return invoice summaries (headers only, no line items; Req 21.3)."""
+        return self._invoices.list_summaries()
 
     def create_draft(self, invoice: Invoice | None = None) -> Invoice:
         """Create and persist a new draft, returning it.
