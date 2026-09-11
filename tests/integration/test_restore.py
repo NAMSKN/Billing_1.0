@@ -28,8 +28,10 @@ from invoice_generator.domain.models import (
 )
 from invoice_generator.infrastructure.backup.manifest import DATABASE_ENTRY, create_package
 from invoice_generator.infrastructure.backup.restore import (
+    SAFETY_BACKUP_PREFIX,
     RestoreError,
     capture_trusted_state,
+    create_safety_backup,
     read_reconciliation_metadata,
     reconciliation_metadata_path,
     restore_backup,
@@ -167,7 +169,8 @@ def test_trusted_state_captured_before_restore_and_survives(tmp_path: Path) -> N
     current_high_water = capture_trusted_state(source)[0].high_water_mark
     assert current_high_water == 2
 
-    metadata = restore_backup(pkg, database=source)
+    result = restore_backup(pkg, database=source)
+    metadata = result.metadata
 
     # The preserved trusted state reflects the CURRENT (pre-restore) high-water
     # of 2, NOT the restored backup's internal mark of 1 (D-029).
@@ -235,3 +238,70 @@ def test_invalid_backup_leaves_live_db_untouched(tmp_path: Path) -> None:
     finally:
         conn.close()
     assert count == 2  # live DB unchanged by the failed restore
+
+
+# --- safety backup before restore (Task 55) ---
+
+
+def test_create_safety_backup_is_consistent_snapshot(tmp_path: Path) -> None:
+    source = _seed_db_with_numbering(tmp_path)
+    backups = tmp_path / "backups"
+
+    safety = create_safety_backup(source, backups, timestamp="20260511T090000Z")
+
+    assert safety.exists()
+    assert safety.parent == backups
+    assert safety.name.startswith(SAFETY_BACKUP_PREFIX)
+    conn = sqlite3.connect(safety)
+    try:
+        (integrity,) = conn.execute("PRAGMA integrity_check").fetchone()
+        (count,) = conn.execute("SELECT COUNT(*) FROM invoices").fetchone()
+    finally:
+        conn.close()
+    assert integrity == "ok"
+    assert count == 1  # snapshot of current data
+
+
+def test_safety_backup_does_not_overwrite_existing(tmp_path: Path) -> None:
+    source = _seed_db_with_numbering(tmp_path)
+    backups = tmp_path / "backups"
+
+    first = create_safety_backup(source, backups, timestamp="20260511T090000Z")
+    second = create_safety_backup(source, backups, timestamp="20260511T090000Z")
+
+    assert first.exists()
+    assert second.exists()
+    assert first != second  # same timestamp does not clobber the earlier one
+
+
+def test_restore_creates_safety_backup_of_current_data(tmp_path: Path) -> None:
+    # Backup packaged at 1 invoice; live DB advanced to 2; restore should first
+    # preserve the current (2-invoice) data in a safety backup, no silent loss.
+    source = _seed_db_with_numbering(tmp_path)
+    pkg = _make_package(source, tmp_path / "backup.zip")
+    _issue_second_invoice(tmp_path)
+
+    backups = tmp_path / "safety"
+    result = restore_backup(pkg, database=source, safety_backup_dir=backups)
+
+    assert result.safety_backup.exists()
+    assert result.safety_backup.parent == backups
+    # The safety backup holds the pre-restore data (2 invoices), not the
+    # restored snapshot (1 invoice).
+    conn = sqlite3.connect(result.safety_backup)
+    try:
+        (count,) = conn.execute("SELECT COUNT(*) FROM invoices").fetchone()
+    finally:
+        conn.close()
+    assert count == 2
+
+
+def test_safety_backup_defaults_beside_database(tmp_path: Path) -> None:
+    source = _seed_db_with_numbering(tmp_path)
+    pkg = _make_package(source, tmp_path / "pkg" / "backup.zip")
+    _issue_second_invoice(tmp_path)
+
+    result = restore_backup(pkg, database=source)
+
+    assert result.safety_backup.parent == source.parent
+    assert result.safety_backup.exists()

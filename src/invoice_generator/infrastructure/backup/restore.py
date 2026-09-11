@@ -32,14 +32,17 @@ import tempfile
 import zipfile
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
+from invoice_generator.infrastructure.backup.backup import create_backup
 from invoice_generator.infrastructure.backup.manifest import (
     DATABASE_ENTRY,
     validate_package,
 )
 
 RECONCILIATION_METADATA_SUFFIX = ".reconciliation.json"
+SAFETY_BACKUP_PREFIX = "pre-restore-"
 METADATA_VERSION = 1
 
 
@@ -96,10 +99,55 @@ class ReconciliationMetadata:
         )
 
 
+@dataclass(frozen=True)
+class RestoreResult:
+    """Outcome of a restore: preserved trusted state and the safety backup path."""
+
+    metadata: ReconciliationMetadata
+    safety_backup: Path
+
+
 def reconciliation_metadata_path(database: str | Path) -> Path:
     """Return the path of the reconciliation metadata file for a database."""
     db_path = Path(database)
     return db_path.with_name(db_path.name + RECONCILIATION_METADATA_SUFFIX)
+
+
+def create_safety_backup(
+    database: str | Path,
+    safety_backup_dir: str | Path,
+    *,
+    timestamp: str | None = None,
+) -> Path:
+    """Create a consistent safety backup of the current database before restore.
+
+    Uses the online backup API (never a raw copy) so the safety backup is a
+    consistent snapshot of the live database. The filename is timestamped so an
+    existing safety backup is never silently overwritten (Req 15.3).
+
+    Args:
+        database: Path to the live SQLite database to preserve.
+        safety_backup_dir: Directory to write the safety backup into.
+        timestamp: Optional filename timestamp (injected for deterministic
+            tests); defaults to the current UTC time (compact ISO form).
+
+    Returns:
+        The path of the created safety backup file.
+    """
+    stamp = timestamp if timestamp is not None else _utc_stamp()
+    target_dir = Path(safety_backup_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    destination = target_dir / f"{SAFETY_BACKUP_PREFIX}{stamp}.db"
+    # Guard against an accidental collision within the same second.
+    counter = 1
+    while destination.exists():
+        destination = target_dir / f"{SAFETY_BACKUP_PREFIX}{stamp}-{counter}.db"
+        counter += 1
+    return create_backup(database, destination)
+
+
+def _utc_stamp() -> str:
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def capture_trusted_state(database: str | Path) -> tuple[ScopeHighWater, ...]:
@@ -155,26 +203,35 @@ def read_reconciliation_metadata(database: str | Path) -> ReconciliationMetadata
     return ReconciliationMetadata.from_json(path.read_text(encoding="utf-8"))
 
 
-def restore_backup(package: str | Path, *, database: str | Path) -> ReconciliationMetadata:
-    """Restore ``package`` over the live ``database`` following D-029 (Task 54).
+def restore_backup(
+    package: str | Path,
+    *,
+    database: str | Path,
+    safety_backup_dir: str | Path | None = None,
+) -> RestoreResult:
+    """Restore ``package`` over the live ``database`` following D-029 (Tasks 54-55).
 
     Steps: capture current trusted numbering state → persist it outside the DB
-    (survives replacement) → validate the package → atomically replace the live
-    database with the package's snapshot. Reconciliation stays pending for a
-    later task to complete.
+    (survives replacement) → safety-backup the current DB → validate the package
+    → atomically replace the live database with the package's snapshot.
+    Reconciliation stays pending for a later task to complete.
 
     Args:
         package: Path to the backup package (``.zip``) produced by Task 53.
         database: Path to the live SQLite database file to replace.
+        safety_backup_dir: Directory for the pre-restore safety backup; defaults
+            to the database's own directory when not supplied.
 
     Returns:
-        The preserved :class:`ReconciliationMetadata` (reconciliation pending).
+        A :class:`RestoreResult` with the preserved reconciliation metadata and
+        the path of the safety backup taken before restoring.
 
     Raises:
-        RestoreError: if the package fails validation; the live database and its
-            metadata are left untouched.
+        RestoreError: if the package fails validation; the live database is left
+            untouched. The safety backup (taken first) is retained regardless.
     """
     db_path = Path(database)
+    backup_dir = Path(safety_backup_dir) if safety_backup_dir is not None else db_path.parent
 
     # 1. Capture trusted state from the CURRENT db (D-029) and preserve it
     #    outside the DB file *before* validation so it exists even if the
@@ -182,19 +239,24 @@ def restore_backup(package: str | Path, *, database: str | Path) -> Reconciliati
     trusted = capture_trusted_state(db_path)
     write_reconciliation_metadata(db_path, trusted, reconciliation_pending=True)
 
-    # 2. Validate the package; reject an invalid/tampered backup (Req 15.3).
+    # 2. Safety-backup the current database before any overwrite (Req 15.3,
+    #    D-029): a consistent snapshot so nothing is lost silently.
+    safety_backup = create_safety_backup(db_path, backup_dir)
+
+    # 3. Validate the package; reject an invalid/tampered backup (Req 15.3).
     result = validate_package(package)
     if not result.ok:
         raise RestoreError(f"backup validation failed: {'; '.join(result.errors)}")
 
-    # 3. Atomically replace the live database with the package's snapshot.
+    # 4. Atomically replace the live database with the package's snapshot.
     _atomic_replace_from_package(package, db_path)
 
-    return read_reconciliation_metadata(db_path) or ReconciliationMetadata(
+    metadata = read_reconciliation_metadata(db_path) or ReconciliationMetadata(
         metadata_version=METADATA_VERSION,
         reconciliation_pending=True,
         scopes=trusted,
     )
+    return RestoreResult(metadata=metadata, safety_backup=safety_backup)
 
 
 def _atomic_replace_from_package(package: str | Path, db_path: Path) -> None:
@@ -228,10 +290,13 @@ def _assert_sqlite_ok(path: Path) -> None:
 __all__ = [
     "METADATA_VERSION",
     "RECONCILIATION_METADATA_SUFFIX",
+    "SAFETY_BACKUP_PREFIX",
     "ReconciliationMetadata",
     "RestoreError",
+    "RestoreResult",
     "ScopeHighWater",
     "capture_trusted_state",
+    "create_safety_backup",
     "read_reconciliation_metadata",
     "reconciliation_metadata_path",
     "restore_backup",

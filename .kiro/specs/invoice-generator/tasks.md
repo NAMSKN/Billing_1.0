@@ -543,7 +543,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** atomic restore; trusted state preserved. _Requirements: 15.3; DECISIONS D-029._
 
-- [ ] 55. Restore safety backup
+- [x] 55. Restore safety backup
   - **Objective:** Preserve current data before restore.
   - **Dependencies:** Task 54.
   - **Files:** `infrastructure/backup/restore.py`, tests.
