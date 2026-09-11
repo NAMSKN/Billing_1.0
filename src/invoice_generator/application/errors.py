@@ -40,6 +40,13 @@ class NumberingError(ApplicationError):
     default_user_message = "The invoice number could not be assigned. Please try again."
 
 
+class ReconciliationPendingError(NumberingError):
+    default_user_message = (
+        "Invoice numbering must be reconciled after the restore before new "
+        "invoices can be issued. Please confirm reconciliation to continue."
+    )
+
+
 class FinalizationError(ApplicationError):
     default_user_message = "The invoice could not be finalized. Please review and try again."
 
@@ -72,6 +79,7 @@ __all__ = [
     "NumberingError",
     "PDFGenerationError",
     "PrinterError",
+    "ReconciliationPendingError",
     "RestoreError",
     "ValidationError",
 ]

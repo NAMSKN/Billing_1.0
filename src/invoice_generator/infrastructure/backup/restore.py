@@ -29,12 +29,15 @@ import json
 import os
 import sqlite3
 import tempfile
+import uuid
 import zipfile
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from invoice_generator.application.numbering_service import NumberingService
+from invoice_generator.application.unit_of_work import UnitOfWork
 from invoice_generator.infrastructure.backup.backup import create_backup
 from invoice_generator.infrastructure.backup.manifest import (
     DATABASE_ENTRY,
@@ -203,6 +206,64 @@ def read_reconciliation_metadata(database: str | Path) -> ReconciliationMetadata
     return ReconciliationMetadata.from_json(path.read_text(encoding="utf-8"))
 
 
+class MetadataReconciliationGate:
+    """Reconciliation gate backed by the on-disk metadata file (D-029).
+
+    Implements :class:`ReconciliationGate`: reports numbering issuance as blocked
+    whenever the preserved reconciliation metadata for the database is present
+    and still pending. Read fresh each call so clearing the flag immediately
+    unblocks issuance.
+    """
+
+    def __init__(self, database: str | Path) -> None:
+        self._database = database
+
+    def is_reconciliation_pending(self) -> bool:
+        metadata = read_reconciliation_metadata(self._database)
+        return metadata is not None and metadata.reconciliation_pending
+
+
+def reconcile_after_restore(
+    connection: sqlite3.Connection,
+    numbering_service: NumberingService,
+    database: str | Path,
+) -> ReconciliationMetadata:
+    """Reconcile numbering after a restore using the preserved trusted state.
+
+    For each captured pre-restore scope, advances the restored database's
+    sequence so the next number is at least ``trusted_high_water_mark + 1``
+    (DECISIONS D-029), each scope independently. Runs in one transaction the
+    caller-owned way (D-026), then clears the pending flag so issuance is
+    allowed again (the Q-009 safe interim: block until explicit confirmation).
+
+    Returns the updated (no-longer-pending) metadata. A no-op (still returns
+    cleared metadata) if there is nothing captured or nothing pending.
+    """
+    metadata = read_reconciliation_metadata(database)
+    if metadata is None:
+        return ReconciliationMetadata(
+            metadata_version=METADATA_VERSION,
+            reconciliation_pending=False,
+            scopes=(),
+        )
+
+    with UnitOfWork(connection):
+        for scope in metadata.scopes:
+            numbering_service.reconcile_scope(
+                uuid.UUID(scope.company_id),
+                scope.financial_year,
+                scope.prefix,
+                scope.high_water_mark,
+            )
+
+    write_reconciliation_metadata(database, metadata.scopes, reconciliation_pending=False)
+    return ReconciliationMetadata(
+        metadata_version=METADATA_VERSION,
+        reconciliation_pending=False,
+        scopes=metadata.scopes,
+    )
+
+
 def restore_backup(
     package: str | Path,
     *,
@@ -291,6 +352,7 @@ __all__ = [
     "METADATA_VERSION",
     "RECONCILIATION_METADATA_SUFFIX",
     "SAFETY_BACKUP_PREFIX",
+    "MetadataReconciliationGate",
     "ReconciliationMetadata",
     "RestoreError",
     "RestoreResult",
@@ -298,6 +360,7 @@ __all__ = [
     "capture_trusted_state",
     "create_safety_backup",
     "read_reconciliation_metadata",
+    "reconcile_after_restore",
     "reconciliation_metadata_path",
     "restore_backup",
     "write_reconciliation_metadata",

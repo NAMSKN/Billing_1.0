@@ -551,7 +551,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** no silent overwrite. _Requirements: 15.3._
 
-- [ ] 56. Numbering reconciliation after restore
+- [x] 56. Numbering reconciliation after restore
   - **Objective:** Block reuse of post-backup numbers using pre-restore trusted state.
   - **Dependencies:** Task 20, 54.
   - **Scope:** RECONCILIATION_PENDING blocks issuance; per scope advance effective sequence to at least `trusted_high_water_mark + 1` using the captured pre-restore state (NOT the restored backup's internal mark); scopes reconcile independently; confirm then allow issuance.

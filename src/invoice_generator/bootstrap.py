@@ -29,6 +29,7 @@ from invoice_generator.application.pdf_service import PdfService
 from invoice_generator.application.print_service import PrintService
 from invoice_generator.application.settings_service import SettingsService
 from invoice_generator.domain.ids import IdGenerator, Uuid4Generator
+from invoice_generator.infrastructure.backup.restore import MetadataReconciliationGate
 from invoice_generator.infrastructure.db.asset_repository import SqliteAssetRepository
 from invoice_generator.infrastructure.db.company_repository import SqliteCompanyRepository
 from invoice_generator.infrastructure.db.connection import connect
@@ -85,7 +86,10 @@ def build_application(
     settings_repo = SqliteSettingsRepository(connection)
 
     settings_service = SettingsService(settings_repo)
-    numbering_service = NumberingService(sequence_repo)
+    numbering_service = NumberingService(
+        sequence_repo,
+        reconciliation_gate=MetadataReconciliationGate(database),
+    )
     pdf_service = PdfService(asset_repository=asset_repo)
     print_service = PrintService(pdf_service)
 
