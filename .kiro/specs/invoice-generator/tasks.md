@@ -570,7 +570,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 10 — Offline / Packaging
 
-- [ ] 58. Offline verification
+- [x] 58. Offline verification
   - **Objective:** Prove no runtime network dependency.
   - **Dependencies:** Task 49, 56.
   - **Scope:** test/guard asserting core workflows make no network call.
