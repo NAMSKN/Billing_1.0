@@ -26,6 +26,7 @@ from invoice_generator.application.clock import Clock, SystemClock
 from invoice_generator.application.invoice_service import InvoiceService
 from invoice_generator.application.numbering_service import NumberingService
 from invoice_generator.application.pdf_service import PdfService
+from invoice_generator.application.print_service import PrintService
 from invoice_generator.application.settings_service import SettingsService
 from invoice_generator.domain.ids import IdGenerator, Uuid4Generator
 from invoice_generator.infrastructure.db.asset_repository import SqliteAssetRepository
@@ -53,6 +54,7 @@ class Application:
     settings_service: SettingsService
     numbering_service: NumberingService
     pdf_service: PdfService
+    print_service: PrintService
 
     def close(self) -> None:
         self.connection.close()
@@ -85,6 +87,7 @@ def build_application(
     settings_service = SettingsService(settings_repo)
     numbering_service = NumberingService(sequence_repo)
     pdf_service = PdfService(asset_repository=asset_repo)
+    print_service = PrintService(pdf_service)
 
     invoice_service = InvoiceService(
         connection,
@@ -105,6 +108,7 @@ def build_application(
         settings_service=settings_service,
         numbering_service=numbering_service,
         pdf_service=pdf_service,
+        print_service=print_service,
     )
 
 

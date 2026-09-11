@@ -20,6 +20,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 from invoice_generator.application.errors import FinalizationError
 from invoice_generator.bootstrap import Application
@@ -182,6 +183,29 @@ class InvoiceFormController:
         return self._app.invoice_service.check_finalization_readiness(
             self._working, invoice_date=invoice_date
         )
+
+    # --- preview / export / print (Req 20) ---
+
+    def render_preview(self) -> bytes:
+        """Render the working (finalized) invoice to PDF bytes (Req 20.1)."""
+        return self._app.pdf_service.render(self._working)
+
+    def default_export_filename(self) -> str:
+        """Deterministic export filename for the working invoice (Req 20.2)."""
+        number = self._working.invoice_number or str(self._working.id)
+        return self._app.pdf_service.export_filename(number)
+
+    def export(self, output_path: str) -> str:
+        """Export the working invoice PDF to ``output_path``; returns the path.
+
+        Uses the same rendering as preview/print. An export failure does not
+        modify the stored invoice (Req 20.5).
+        """
+        return str(self._app.pdf_service.export(self._working, output_path))
+
+    def print(self, spool_dir: str) -> str:
+        """Print the working invoice via the print service; returns spooled path."""
+        return str(self._app.print_service.print_invoice(self._working, Path(spool_dir)))
 
 
 __all__ = ["FinalizationError", "InvoiceFormController"]

@@ -61,6 +61,9 @@ class InvoiceForm(QWidget):
         self.pos_code.textChanged.connect(self._sync_place_of_supply)
         self.line_table.changed.connect(self.refresh_totals)
         self.save_draft_button.clicked.connect(self.save_draft)
+        self.preview_button.clicked.connect(self._on_preview)
+        self.export_button.clicked.connect(self._on_export)
+        self.print_button.clicked.connect(self._on_print)
         QShortcut(QKeySequence.StandardKey.Save, self, self.save_draft)
         QShortcut(QKeySequence.StandardKey.New, self, self.new_invoice)
 
@@ -154,6 +157,42 @@ class InvoiceForm(QWidget):
     def check_finalization(self, invoice_date: date) -> ValidationResult:
         self._sync_working()
         return self._controller.check_finalization(invoice_date)
+
+    # --- preview / export / print (enabled once finalized) ---
+
+    def _is_finalized(self) -> bool:
+        return self._controller.working.invoice_number is not None
+
+    def _on_preview(self) -> None:
+        if not self._is_finalized():
+            return
+        # Render to a temp file and open via the OS default viewer (Task 29).
+        import tempfile
+        from pathlib import Path
+
+        from invoice_generator.infrastructure.printing.windows_print_adapter import open_default
+
+        pdf = self._controller.render_preview()
+        tmp = Path(tempfile.gettempdir()) / self._controller.default_export_filename()
+        tmp.write_bytes(pdf)
+        open_default(str(tmp))
+
+    def _on_export(self) -> None:
+        if not self._is_finalized():
+            return
+        from PySide6.QtWidgets import QFileDialog
+
+        suggested = self._controller.default_export_filename()
+        path, _ = QFileDialog.getSaveFileName(self, "Export Invoice PDF", suggested, "PDF (*.pdf)")
+        if path:
+            self._controller.export(path)
+
+    def _on_print(self) -> None:
+        if not self._is_finalized():
+            return
+        import tempfile
+
+        self._controller.print(tempfile.gettempdir())
 
 
 __all__ = ["InvoiceForm"]

@@ -197,3 +197,21 @@ def test_form_save_draft(qapp: QApplication, tmp_path: Path) -> None:
         assert result.is_ok
     finally:
         app.close()
+
+
+def test_form_preview_export_print_noop_when_not_finalized(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    app = build_test_app(tmp_path)
+    try:
+        _seed(app)
+        form = InvoiceForm(InvoiceFormController(app))
+        form.customer_combo.setCurrentIndex(1)
+        form.line_table.set_lines((_line(),))
+        # Not finalized yet: handlers are guarded and must not raise.
+        form._on_preview()
+        form._on_export()
+        form._on_print()
+        assert form._controller.working.invoice_number is None
+    finally:
+        app.close()

@@ -491,7 +491,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** calculations only via engine. _Requirements: 3, 4, 6, 7, 8, 9, 11, 25.2._
 
-- [ ] 49. Finalize / reprint workflow
+- [x] 49. Finalize / reprint workflow
   - **Objective:** Finalize, preview, export, print, reprint.
   - **Dependencies:** Task 23, 42, 30.
   - **Files:** `ui/invoices/`, `application/print_service.py`, `application/pdf_service.py`, tests.

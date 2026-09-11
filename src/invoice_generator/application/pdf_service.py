@@ -12,8 +12,10 @@ References: requirements Req 19.6, 19.8; DECISIONS D-011, D-020; design sections
 
 from __future__ import annotations
 
+import os
 import uuid
 from decimal import Decimal
+from pathlib import Path
 
 from invoice_generator.application.render_dto import (
     InvoiceRenderDTO,
@@ -112,6 +114,43 @@ class PdfService:
         if asset is None:
             return None
         return RenderAssetRef(stored_path=asset.stored_path, version=asset.version)
+
+    def render(self, invoice: Invoice) -> bytes:
+        """Render a finalized invoice to PDF bytes (single rendering path).
+
+        Preview, print, and export all go through this method so they produce
+        identical output (Req 20.1). The renderer is imported lazily so the
+        application layer does not require ReportLab unless a PDF is produced.
+        """
+        # Local import keeps ReportLab out of the import path for non-PDF flows.
+        from invoice_generator.infrastructure.pdf.renderer import render_invoice_pdf
+
+        return render_invoice_pdf(self.build_dto(invoice))
+
+    def export(self, invoice: Invoice, output_path: str | Path) -> Path:
+        """Render and write the invoice PDF to ``output_path`` atomically.
+
+        Writes to a temporary file in the target directory, then replaces the
+        destination, so a failure mid-write never leaves a corrupt file and
+        never touches the stored invoice (Req 20.5). Returns the written path.
+        """
+        pdf = self.render(invoice)
+        destination = Path(output_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        tmp = destination.with_suffix(destination.suffix + ".tmp")
+        tmp.write_bytes(pdf)
+        os.replace(tmp, destination)
+        return destination
+
+    @staticmethod
+    def export_filename(invoice_number: str) -> str:
+        """Return a deterministic export filename for an invoice number.
+
+        ``SE/26-27/043`` -> ``INV_SE_26-27_043.pdf`` (Req 20.2). Path-unsafe
+        characters (``/`` and ``\\``) become underscores.
+        """
+        safe = invoice_number.replace("/", "_").replace("\\", "_")
+        return f"INV_{safe}.pdf"
 
 
 def _is_intra_state(snap: InvoiceSnapshot) -> bool:
