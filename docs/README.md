@@ -249,6 +249,7 @@ Feature-specific rules, layouts, workflows, and acceptance runbooks are isolated
 | Feature Folder | Core Documents | Description |
 |---|---|---|
 | [**`feature/invoice-generator/`**](./feature/invoice-generator/README.md) | [`INVOICE_RULES.md`](./feature/invoice-generator/INVOICE_RULES.md)<br>[`PDF_LAYOUT.md`](./feature/invoice-generator/PDF_LAYOUT.md)<br>[`ACCEPTANCE_E2E.md`](./feature/invoice-generator/ACCEPTANCE_E2E.md) | Full specifications for invoice lifecycle, GST calculations, numbering, ReportLab PDF layout, and end-to-end acceptance testing. |
+| [**`feature/vendor-customer/`**](./feature/vendor-customer/README.md) | [`VENDOR_CUSTOMER_RULES.md`](./feature/vendor-customer/VENDOR_CUSTOMER_RULES.md)<br>[`UI_LAYOUT.md`](./feature/vendor-customer/UI_LAYOUT.md)<br>[`ACCEPTANCE.md`](./feature/vendor-customer/ACCEPTANCE.md) | Centralized master data management for customers, suppliers/vendors, GSTIN validation, and address management. |
 
 ### 🗂️ Documentation Structure
 
@@ -262,11 +263,16 @@ docs/
 ├── INSTALL_TEST.md                # Application installation & packaging verification
 ├── MANUAL_SMOKE_TEST.md           # Manual smoke-test checklist
 └── feature/                       # Feature-isolated specifications
-    └── invoice-generator/         # Invoice Generator feature module
+    ├── invoice-generator/         # Invoice Generator feature module
+    │   ├── README.md              # Feature overview & document index
+    │   ├── INVOICE_RULES.md       # Canonical invoice business & calculation rules
+    │   ├── PDF_LAYOUT.md          # Professional A4 invoice PDF layout specification
+    │   └── ACCEPTANCE_E2E.md      # End-to-end acceptance runbook & checklist
+    └── vendor-customer/           # Vendor & Customer management feature module
         ├── README.md              # Feature overview & document index
-        ├── INVOICE_RULES.md       # Canonical invoice business & calculation rules
-        ├── PDF_LAYOUT.md          # Professional A4 invoice PDF layout specification
-        └── ACCEPTANCE_E2E.md      # End-to-end acceptance runbook & checklist
+        ├── VENDOR_CUSTOMER_RULES.md # Entity taxonomy, GSTIN/PAN & archival rules
+        ├── UI_LAYOUT.md           # Master list & entity editor UI layout
+        └── ACCEPTANCE.md          # Acceptance criteria & verification plan
 ```
 
 ---
