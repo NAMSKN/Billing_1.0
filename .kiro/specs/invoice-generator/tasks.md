@@ -525,7 +525,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** consistent snapshot. _Requirements: 15.1, 30.6; DECISIONS D-018._
 
-- [ ] 53. Backup validation / manifest
+- [x] 53. Backup validation / manifest
   - **Objective:** Package + integrity manifest.
   - **Dependencies:** Task 52.
   - **Scope:** db + schema/app version + required asset versions + manifest (sizes, SHA-256).
