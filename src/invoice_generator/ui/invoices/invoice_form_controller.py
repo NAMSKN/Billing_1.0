@@ -38,6 +38,7 @@ from invoice_generator.domain.models import (
     InvoiceLine,
     InvoiceTotals,
     PlaceOfSupply,
+    ServiceTemplate,
     TaxRateConfig,
 )
 from invoice_generator.domain.validation import ValidationResult
@@ -100,6 +101,36 @@ class InvoiceFormController:
     def set_lines(self, lines: tuple[InvoiceLine, ...]) -> Invoice:
         self._working = self._working.model_copy(update={"lines": lines})
         return self._working
+
+    # --- service templates (Req 29, P2) ---
+
+    def available_service_templates(self) -> Sequence[ServiceTemplate]:
+        """Return saved service templates for quick line entry (Req 29.1)."""
+        return self._app.settings_service.list_service_templates()
+
+    def insert_service_template(self, template_id: uuid.UUID) -> InvoiceLine:
+        """Append a new editable line pre-filled from a service template (Req 29).
+
+        Only descriptive fields are copied (description, HSN/SAC, unit); price
+        and quantity stay at their defaults for the operator to enter. The
+        appended line is an ordinary :class:`InvoiceLine` and remains freely
+        editable (Req 29.2) — templates add no inventory behavior (Req 29.3).
+        """
+        template = self._find_template(template_id)
+        line = InvoiceLine(
+            sequence=len(self._working.lines) + 1,
+            description=template.description or template.name,
+            hsn_sac=template.hsn_sac,
+            unit=template.unit,
+        )
+        self._working = self._working.model_copy(update={"lines": (*self._working.lines, line)})
+        return line
+
+    def _find_template(self, template_id: uuid.UUID) -> ServiceTemplate:
+        for template in self._app.settings_service.list_service_templates():
+            if template.id == template_id:
+                return template
+        raise ValueError("service template not found")
 
     def update_fields(self, **fields: object) -> Invoice:
         self._working = self._working.model_copy(update=fields)

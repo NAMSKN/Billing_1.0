@@ -29,6 +29,7 @@ from invoice_generator.domain.models import (
     Customer,
     Invoice,
     SequenceState,
+    ServiceTemplate,
 )
 
 
@@ -97,3 +98,12 @@ class SettingsRepository(Protocol):
     def get(self, key: str) -> str | None: ...
 
     def set(self, key: str, value: str) -> None: ...
+
+
+@runtime_checkable
+class ServiceTemplateRepository(Protocol):
+    """Persistence for reusable service templates (Req 29, P2)."""
+
+    def save(self, template: ServiceTemplate) -> None: ...
+
+    def list(self) -> Sequence[ServiceTemplate]: ...

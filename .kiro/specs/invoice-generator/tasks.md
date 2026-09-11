@@ -579,7 +579,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass with sockets disabled.
   - **DoD:** offline invariant proven. _Requirements: 24._
 
-- [ ] 59. Service templates (if still in scope)
+- [x] 59. Service templates (if still in scope)
   - **Objective:** Optional reusable service descriptions (P2).
   - **Dependencies:** Task 48.
   - **Scope:** save/insert templates (UUID id); no inventory features.

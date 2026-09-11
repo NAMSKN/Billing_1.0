@@ -146,6 +146,22 @@ class Customer(DomainModel):
     is_active: bool = True
 
 
+class ServiceTemplate(DomainModel):
+    """A reusable service description for faster line entry (Req 29, P2).
+
+    Templates capture only descriptive fields (name, description, HSN/SAC,
+    unit) — never price, quantity, or stock — so inserting one pre-fills an
+    invoice line that stays freely editable, without introducing any inventory
+    or product-management concept (Req 29.3).
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    name: str = ""
+    description: str = ""
+    hsn_sac: str = ""
+    unit: str = ""
+
+
 class InvoiceLine(DomainModel):
     """A single mould/machining line item (Req 4, design section 13).
 

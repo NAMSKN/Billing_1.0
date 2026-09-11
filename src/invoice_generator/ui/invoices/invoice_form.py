@@ -45,6 +45,10 @@ class InvoiceForm(QWidget):
         self.line_table = LineItemTable()
         self.totals_label = QLabel("Grand Total: 0.00")
 
+        # Service templates (Req 29, P2): quick-insert a reusable description.
+        self.template_combo = QComboBox()
+        self.insert_template_button = QPushButton("Insert Template")
+
         self.save_draft_button = QPushButton("Save Draft")
         self.finalize_button = QPushButton("Finalize")
         self.preview_button = QPushButton("Preview")  # wired in Task 49
@@ -54,12 +58,14 @@ class InvoiceForm(QWidget):
         self._wire()
         self._build_layout()
         self.reload_customers()
+        self.reload_service_templates()
 
     def _wire(self) -> None:
         self.customer_combo.currentIndexChanged.connect(self._on_customer_changed)
         self.pos_state.textChanged.connect(self._sync_place_of_supply)
         self.pos_code.textChanged.connect(self._sync_place_of_supply)
         self.line_table.changed.connect(self.refresh_totals)
+        self.insert_template_button.clicked.connect(self.insert_selected_template)
         self.save_draft_button.clicked.connect(self.save_draft)
         self.preview_button.clicked.connect(self._on_preview)
         self.export_button.clicked.connect(self._on_export)
@@ -74,6 +80,11 @@ class InvoiceForm(QWidget):
         form.addRow("Place of Supply", self.pos_state)
         form.addRow("PoS State Code", self.pos_code)
         layout.addLayout(form)
+        template_row = QHBoxLayout()
+        template_row.addWidget(QLabel("Service template"))
+        template_row.addWidget(self.template_combo, stretch=1)
+        template_row.addWidget(self.insert_template_button)
+        layout.addLayout(template_row)
         layout.addWidget(self.line_table, stretch=1)
         layout.addWidget(self.totals_label)
         extra = QFormLayout()
@@ -118,6 +129,30 @@ class InvoiceForm(QWidget):
         self._controller.set_place_of_supply(
             self.pos_state.text().strip(), self.pos_code.text().strip()
         )
+        self.refresh_totals()
+
+    # --- service templates (Req 29, P2) ---
+
+    def reload_service_templates(self) -> None:
+        self.template_combo.clear()
+        self._templates = list(self._controller.available_service_templates())
+        self.template_combo.addItem("-- Select template --", userData=None)
+        for template in self._templates:
+            self.template_combo.addItem(template.name, userData=str(template.id))
+        # Nothing to insert until a real template is chosen.
+        self.insert_template_button.setEnabled(bool(self._templates))
+
+    def insert_selected_template(self) -> None:
+        data = self.template_combo.currentData()
+        if not data:
+            return
+        import uuid
+
+        # Persist current table edits, insert the template line, then reflect
+        # the controller's updated lines back into the editable table.
+        self._controller.set_lines(self.line_table.collect_lines())
+        self._controller.insert_service_template(uuid.UUID(str(data)))
+        self.line_table.set_lines(self._controller.working.lines)
         self.refresh_totals()
 
     # --- totals (live) ---

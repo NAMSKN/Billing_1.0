@@ -37,6 +37,9 @@ from invoice_generator.infrastructure.db.customer_repository import SqliteCustom
 from invoice_generator.infrastructure.db.invoice_repository import SqliteInvoiceRepository
 from invoice_generator.infrastructure.db.migrator import apply_pending
 from invoice_generator.infrastructure.db.sequence_repository import SqliteSequenceRepository
+from invoice_generator.infrastructure.db.service_template_repository import (
+    SqliteServiceTemplateRepository,
+)
 from invoice_generator.infrastructure.db.settings_repository import SqliteSettingsRepository
 
 
@@ -84,8 +87,9 @@ def build_application(
     sequence_repo = SqliteSequenceRepository(connection)
     asset_repo = SqliteAssetRepository(connection)
     settings_repo = SqliteSettingsRepository(connection)
+    service_template_repo = SqliteServiceTemplateRepository(connection)
 
-    settings_service = SettingsService(settings_repo)
+    settings_service = SettingsService(settings_repo, service_template_repo)
     numbering_service = NumberingService(
         sequence_repo,
         reconciliation_gate=MetadataReconciliationGate(database),

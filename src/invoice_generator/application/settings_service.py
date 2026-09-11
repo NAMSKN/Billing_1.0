@@ -14,11 +14,15 @@ References: requirements Req 10.1, 10.3, 10.7; design sections 9, 33.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from decimal import Decimal
 
-from invoice_generator.domain.models import TaxRateConfig
+from invoice_generator.domain.models import ServiceTemplate, TaxRateConfig
 from invoice_generator.domain.numbering import NumberingConfig
-from invoice_generator.domain.repositories import SettingsRepository
+from invoice_generator.domain.repositories import (
+    ServiceTemplateRepository,
+    SettingsRepository,
+)
 
 _NUMBERING_KEY = "numbering_config"
 _TAX_KEY = "tax_rate_config"
@@ -34,8 +38,13 @@ _DEFAULT_TAX = TaxRateConfig(
 
 
 class SettingsService:
-    def __init__(self, settings_repository: SettingsRepository) -> None:
+    def __init__(
+        self,
+        settings_repository: SettingsRepository,
+        service_template_repository: ServiceTemplateRepository | None = None,
+    ) -> None:
         self._settings = settings_repository
+        self._templates = service_template_repository
 
     def get_numbering_config(self) -> NumberingConfig:
         """Return the saved numbering config, or the default if none is saved."""
@@ -87,3 +96,24 @@ class SettingsService:
             "igst_rate": str(config.igst_rate),
         }
         self._settings.set(_TAX_KEY, json.dumps(payload))
+
+    # --- Service templates (Req 29, P2) ---
+
+    def save_service_template(self, template: ServiceTemplate) -> None:
+        """Persist a reusable service template.
+
+        Raises :class:`RuntimeError` if the service was wired without a template
+        repository (feature disabled).
+        """
+        self._require_templates().save(template)
+
+    def list_service_templates(self) -> Sequence[ServiceTemplate]:
+        """Return saved service templates (ordered by name), or empty if none."""
+        if self._templates is None:
+            return ()
+        return self._templates.list()
+
+    def _require_templates(self) -> ServiceTemplateRepository:
+        if self._templates is None:
+            raise RuntimeError("service templates are not enabled")
+        return self._templates

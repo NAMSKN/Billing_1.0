@@ -22,6 +22,7 @@ from invoice_generator.domain.models import (
     Customer,
     InvoiceLine,
     SequenceState,
+    ServiceTemplate,
 )
 from invoice_generator.domain.money import (
     from_hundredths,
@@ -244,6 +245,30 @@ def row_to_line(row: sqlite3.Row) -> InvoiceLine:
         cgst_amount=_money_or_none(row["cgst_paise"]),
         sgst_amount=_money_or_none(row["sgst_paise"]),
         igst_amount=_money_or_none(row["igst_paise"]),
+    )
+
+
+# --- ServiceTemplate ---
+
+
+def service_template_to_row(t: ServiceTemplate) -> dict[str, object]:
+    return {
+        "id": uid(t.id),
+        "company_id": None,
+        "name": t.name,
+        "description": t.description,
+        "hsn_sac": t.hsn_sac,
+        "unit": t.unit,
+    }
+
+
+def row_to_service_template(row: sqlite3.Row) -> ServiceTemplate:
+    return ServiceTemplate(
+        id=parse_uid(row["id"]),
+        name=row["name"],
+        description=row["description"],
+        hsn_sac=row["hsn_sac"],
+        unit=row["unit"],
     )
 
 
