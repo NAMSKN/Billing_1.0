@@ -588,7 +588,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass (or task explicitly deferred).
   - **DoD:** no inventory scope creep. _Requirements: 29._
 
-- [ ] 60. Windows packaging
+- [x] 60. Windows packaging
   - **Objective:** Windows executable with data separation.
   - **Dependencies:** Task 44.
   - **Scope:** PyInstaller spec; bundle runtime + deps + assets.
