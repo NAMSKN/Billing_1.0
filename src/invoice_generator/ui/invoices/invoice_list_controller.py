@@ -142,6 +142,10 @@ class InvoiceListController:
     ) -> Invoice:
         return self._app.invoice_service.cancel(invoice_id, reason, when=when)
 
+    def set_payment_status(self, invoice_id: uuid.UUID, status: PaymentStatus) -> Invoice:
+        """Set the payment status (independent of lifecycle; DECISIONS D-015)."""
+        return self._app.invoice_service.set_payment_status(invoice_id, status)
+
     def _require(self, invoice_id: uuid.UUID) -> Invoice:
         invoice = self._app.invoice_service.get(invoice_id)
         if invoice is None:

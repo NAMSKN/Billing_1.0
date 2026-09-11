@@ -149,9 +149,8 @@ def test_form_inserts_template_into_table(qapp: QApplication, tmp_path: Path) ->
         form = InvoiceForm(InvoiceFormController(app))
         form.reload_service_templates()
 
-        # Select the template (index 1; index 0 is the placeholder) and insert.
-        form.template_combo.setCurrentIndex(1)
-        form.insert_selected_template()
+        # Insert via the direct (dialog-chosen) path.
+        assert form.insert_template(template.id)
 
         assert form.line_table.table.rowCount() == 1
         assert len(form._controller.working.lines) == 1  # noqa: SLF001
@@ -159,12 +158,14 @@ def test_form_inserts_template_into_table(qapp: QApplication, tmp_path: Path) ->
         app.close()
 
 
-def test_form_insert_button_disabled_without_templates(
+def test_form_insert_button_enabled_for_draft_even_without_templates(
     qapp: QApplication, tmp_path: Path
 ) -> None:
+    # The button now stays enabled for drafts so the picker can show its
+    # empty-state guidance to Settings; it is only disabled once finalized.
     app = build_test_app(tmp_path)
     try:
         form = InvoiceForm(InvoiceFormController(app))
-        assert form.insert_template_button.isEnabled() is False
+        assert form.insert_template_button.isEnabled() is True
     finally:
         app.close()

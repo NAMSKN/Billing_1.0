@@ -14,6 +14,7 @@ References: requirements Req 10.1, 10.3, 10.7; design sections 9, 33.
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Sequence
 from decimal import Decimal
 
@@ -112,6 +113,12 @@ class SettingsService:
         if self._templates is None:
             return ()
         return self._templates.list()
+
+    def delete_service_template(self, template_id: uuid.UUID) -> None:
+        """Delete a service template. No-op if templates are not enabled."""
+        if self._templates is None:
+            return
+        self._templates.delete(template_id)
 
     def _require_templates(self) -> ServiceTemplateRepository:
         if self._templates is None:

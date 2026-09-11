@@ -6,7 +6,7 @@ the acceptance criteria that are checkable headlessly: a valid A4 PDF, required
 content present, the Invoice 043 golden aggregate values reproduced, the print
 pipeline spooling a valid PDF, and reprint after restore reproducing identical
 content (not a new invoice). The physical printed-A4 check is manual and is
-documented in docs/ACCEPTANCE_E2E.md.
+documented in docs/feature/invoice-generator/ACCEPTANCE_E2E.md.
 
 References: requirements Req 19, 20, 26; PDF_LAYOUT §40, §45; DECISIONS D-031.
 """

@@ -9,6 +9,8 @@ and no calculations; it only wires navigation and hands services to screens.
 
 from __future__ import annotations
 
+import uuid
+
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QListWidget,
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from invoice_generator.bootstrap import Application
+from invoice_generator.ui.common.ui_kit import APP_STYLESHEET
 from invoice_generator.ui.customers.customer_controller import CustomerController
 from invoice_generator.ui.customers.customer_screen import CustomerScreen
 from invoice_generator.ui.dashboard.dashboard_controller import DashboardController
@@ -47,8 +50,11 @@ class MainWindow(QMainWindow):
         self._app = app
         self.setWindowTitle("Invoice Generator")
         self.resize(1024, 720)
+        self.setMinimumSize(900, 560)
+        self.setStyleSheet(APP_STYLESHEET)
 
         self._nav = QListWidget()
+        self._nav.setObjectName("navSidebar")
         self._nav.addItems(list(SCREENS))
         self._nav.setFixedWidth(200)
 
@@ -57,7 +63,7 @@ class MainWindow(QMainWindow):
         for name in SCREENS:
             self._stack.addWidget(self._screens[name])
 
-        self._nav.currentRowChanged.connect(self._stack.setCurrentIndex)
+        self._nav.currentRowChanged.connect(self._on_nav_changed)
         self._nav.setCurrentRow(0)
 
         central = QWidget()
@@ -67,14 +73,21 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _build_screens(self, app: Application) -> dict[str, QWidget]:
-        """Construct the real screens with controllers from the wired app."""
-        dashboard = DashboardScreen(DashboardController(app))
+        """Construct the real screens with controllers from the wired app.
+
+        The window implements the :class:`Navigator` protocol and passes itself
+        to screens that need cross-screen navigation (open an invoice in the
+        editor, jump to a screen), keeping the widgets decoupled from each other.
+        """
+        self._invoice_form = InvoiceForm(InvoiceFormController(app), navigator=self)
+
+        dashboard = DashboardScreen(DashboardController(app), navigator=self)
         dashboard.new_invoice_requested.connect(self._on_new_invoice)
         return {
             "Dashboard": dashboard,
             "Customers": CustomerScreen(CustomerController(app.customer_service_repo)),
-            "Create / Edit Invoice": InvoiceForm(InvoiceFormController(app)),
-            "Invoice History": InvoiceListScreen(InvoiceListController(app)),
+            "Create / Edit Invoice": self._invoice_form,
+            "Invoice History": InvoiceListScreen(InvoiceListController(app), navigator=self),
             "Settings": SettingsScreen(self._settings_controller(app)),
         }
 
@@ -90,8 +103,33 @@ class MainWindow(QMainWindow):
             AssetStore(get_app_paths().assets_dir),
         )
 
+    def _on_nav_changed(self, index: int) -> None:
+        self._stack.setCurrentIndex(index)
+        # Refresh data-backed screens when they become visible so newly
+        # created/finalized invoices and edited masters appear immediately.
+        name = SCREENS[index] if 0 <= index < len(SCREENS) else ""
+        screen = self._screens.get(name)
+        if name == "Dashboard" and isinstance(screen, DashboardScreen):
+            screen.refresh()
+        elif name == "Invoice History" and isinstance(screen, InvoiceListScreen):
+            screen.refresh()
+        elif name == "Create / Edit Invoice":
+            self._invoice_form.reload_customers()
+            self._invoice_form.reload_service_templates()
+
     def _on_new_invoice(self) -> None:
+        self._invoice_form.new_invoice()
         self.go_to("Create / Edit Invoice")
+
+    def open_invoice(self, invoice_id: uuid.UUID) -> None:
+        """Navigator: switch to the editor, then load the invoice into it.
+
+        Navigate first so the nav-change handler's customer/template reload runs
+        before we load and reflect the invoice's own selections (otherwise the
+        reload would clear them).
+        """
+        self.go_to("Create / Edit Invoice")
+        self._invoice_form.load_invoice(invoice_id)
 
     @property
     def application(self) -> Application:

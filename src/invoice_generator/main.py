@@ -36,9 +36,15 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtWidgets import QApplication
 
     from invoice_generator.ui.main_window import MainWindow
+    from invoice_generator.ui.theme import force_light_theme
 
     application = build_app()
-    qt_app = QApplication.instance() or QApplication(argv if argv is not None else sys.argv)
+    existing = QApplication.instance()
+    qt_app = existing if isinstance(existing, QApplication) else QApplication(
+        argv if argv is not None else sys.argv
+    )
+    # Enforce one intentional light theme regardless of the OS (Windows) theme.
+    force_light_theme(qt_app)
     window = MainWindow(application)
     window.show()
     try:

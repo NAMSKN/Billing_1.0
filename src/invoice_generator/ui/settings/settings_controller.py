@@ -12,10 +12,17 @@ References: requirements Req 1, 6.4, 10, 17; DECISIONS D-019, D-030.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
 
 from invoice_generator.application.settings_service import SettingsService
-from invoice_generator.domain.models import Asset, Company, Invoice, TaxRateConfig
+from invoice_generator.domain.models import (
+    Asset,
+    Company,
+    Invoice,
+    ServiceTemplate,
+    TaxRateConfig,
+)
 from invoice_generator.domain.numbering import NumberingConfig
 from invoice_generator.domain.repositories import AssetRepository, CompanyRepository
 from invoice_generator.domain.validation import ValidationResult, validate_draft
@@ -92,6 +99,41 @@ class SettingsController:
         if asset_id is None:
             return None
         return self._assets.get(asset_id)
+
+    def set_company_logo(self, source_path: str) -> Asset | None:
+        """Import a logo and pin it on the active company; returns the asset.
+
+        Returns ``None`` if the file is missing/unreadable. Importing a new logo
+        creates a NEW asset version, so historical invoices that pinned an
+        earlier version keep rendering their original logo (DECISIONS D-019).
+        """
+        asset = self.import_asset(source_path, kind="logo")
+        if asset is None:
+            return None
+        company = self.load_company()
+        self._companies.save(company.model_copy(update={"logo_asset_id": asset.id}))
+        return asset
+
+    def remove_company_logo(self) -> None:
+        """Unpin the current logo from the active company (asset kept for history)."""
+        company = self.load_company()
+        if company.logo_asset_id is not None:
+            self._companies.save(company.model_copy(update={"logo_asset_id": None}))
+
+    def current_logo(self) -> Asset | None:
+        """Return the active company's currently pinned logo asset, if any."""
+        return self.resolve_asset(self.load_company().logo_asset_id)
+
+    # --- Service templates (Req 29, P2) ---
+
+    def list_service_templates(self) -> Sequence[ServiceTemplate]:
+        return self._settings.list_service_templates()
+
+    def save_service_template(self, template: ServiceTemplate) -> None:
+        self._settings.save_service_template(template)
+
+    def delete_service_template(self, template_id: uuid.UUID) -> None:
+        self._settings.delete_service_template(template_id)
 
     def _next_version(self, kind: str) -> int:
         # Versions are per-kind and monotonic; a full history query is not

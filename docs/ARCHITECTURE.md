@@ -4,8 +4,8 @@ Document Version: 2.0
 Status: Revised Architecture Baseline  
 Related Documents:
 `PRODUCT_REQUIREMENTS.md`
-`INVOICE_RULES.md`
-`PDF_LAYOUT.md`
+`feature/invoice-generator/INVOICE_RULES.md`
+`feature/invoice-generator/PDF_LAYOUT.md`
 `.kiro/specs/invoice-generator/requirements.md`
 `.kiro/specs/invoice-generator/design.md`
 `.kiro/specs/invoice-generator/tasks.md`
@@ -1625,12 +1625,19 @@ invoice-generator/
 │           └── tasks.md
 │
 ├── docs/
+│   ├── README.md
 │   ├── PRODUCT_REQUIREMENTS.md
 │   ├── ARCHITECTURE.md
-│   ├── INVOICE_RULES.md
-│   ├── PDF_LAYOUT.md
+│   ├── DECISIONS.md
 │   ├── OPEN_QUESTIONS.md
-│   └── DECISIONS.md
+│   ├── INSTALL_TEST.md
+│   ├── MANUAL_SMOKE_TEST.md
+│   └── feature/
+│       └── invoice-generator/
+│           ├── README.md
+│           ├── INVOICE_RULES.md
+│           ├── PDF_LAYOUT.md
+│           └── ACCEPTANCE_E2E.md
 │
 ├── src/
 │   ├── main.py

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -42,6 +43,22 @@ from invoice_generator.domain.models import (
     TaxRateConfig,
 )
 from invoice_generator.domain.validation import ValidationResult
+
+
+@dataclass(frozen=True)
+class LineBreakdown:
+    """Per-line calculation preview (engine-computed; display only)."""
+
+    index: int
+    description: str
+    quantity: Decimal
+    rate: Decimal
+    discount_percent: Decimal
+    taxable: Decimal
+    cgst: Decimal
+    sgst: Decimal
+    igst: Decimal
+
 
 _ZERO = Decimal("0.00")
 _ZERO_TOTALS = InvoiceTotals(
@@ -70,6 +87,23 @@ class InvoiceFormController:
         """Start a fresh working draft (not yet persisted)."""
         self._working = Invoice()
         return self._working
+
+    def load_invoice(self, invoice_id: uuid.UUID) -> Invoice:
+        """Load an existing invoice (draft or finalized) as the working invoice.
+
+        Enables opening an invoice from History/Dashboard into the editor. A
+        finalized invoice loads read-only (the widget locks fields); a draft
+        can be edited and saved/finalized. Raises ``ValueError`` if not found.
+        """
+        invoice = self._app.invoice_service.get(invoice_id)
+        if invoice is None:
+            raise ValueError("invoice not found")
+        self._working = invoice
+        return self._working
+
+    def is_finalized(self) -> bool:
+        """True if the working invoice has been finalized (has a number)."""
+        return self._working.invoice_number is not None
 
     def available_customers(self) -> Sequence[Customer]:
         """Active customers selectable for this invoice (Req 2.6)."""
@@ -160,6 +194,51 @@ class InvoiceFormController:
         inputs = self._line_inputs(lines, tax_type, config)
         return calculate_invoice_totals(inputs)
 
+    def preview_tax_type(self) -> TaxType | None:
+        """Return the resolved tax type (intra/inter-state) for the preview.
+
+        ``None`` when the tax context is incomplete (no active company or no
+        Place of Supply yet).
+        """
+        company = self._app.company_service_repo.get_active()
+        pos_code = self._working.place_of_supply.state_code.strip()
+        if company is None or not pos_code:
+            return None
+        return determine_tax_type(company.address.state_code, pos_code)
+
+    def line_breakdowns(self) -> list[LineBreakdown]:
+        """Per-line calculation breakdown via the engine (D-006), for display.
+
+        Each entry shows quantity x rate, discount %, taxable value, and the
+        line's tax, all computed by the calculation engine (never in the UI).
+        Empty when the tax context is incomplete.
+        """
+        lines = self._working.lines
+        tax_type = self.preview_tax_type()
+        if not lines or tax_type is None:
+            return []
+        config = self.tax_config()
+        out: list[LineBreakdown] = []
+        for i, line in enumerate(lines):
+            if line.tax_treatment is not TaxTreatment.TAXABLE:
+                continue
+            amounts = calculate_line(line.quantity, line.rate, line.discount_percent)
+            tax = calculate_line_tax(amounts.taxable, tax_type, config)
+            out.append(
+                LineBreakdown(
+                    index=i + 1,
+                    description=line.description or line.job_or_mould_reference or f"Line {i + 1}",
+                    quantity=line.quantity,
+                    rate=line.rate,
+                    discount_percent=line.discount_percent,
+                    taxable=amounts.taxable,
+                    cgst=tax.cgst,
+                    sgst=tax.sgst,
+                    igst=tax.igst,
+                )
+            )
+        return out
+
     def _line_inputs(
         self,
         lines: tuple[InvoiceLine, ...],
@@ -239,4 +318,4 @@ class InvoiceFormController:
         return str(self._app.print_service.print_invoice(self._working, Path(spool_dir)))
 
 
-__all__ = ["FinalizationError", "InvoiceFormController"]
+__all__ = ["FinalizationError", "InvoiceFormController", "LineBreakdown"]

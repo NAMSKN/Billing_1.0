@@ -227,16 +227,47 @@ The project is being developed in small stages:
 
 ---
 
-## 📖 Project documents
+## 📖 Project Documentation
 
-Want to understand the project before using or contributing?
+The documentation is organized into **Common / Shared System Documents** (under `docs/`) and **Feature-Specific Documents** (under `docs/feature/<feature-name>/`).
 
-| Document | What it tells you |
+### 🏛️ Common & Shared System Documents
+These documents apply across the entire Billing application and cross-cutting subsystems:
+
+| Document | Description |
 |---|---|
-| [`PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md) | What the application should do |
-| [`INVOICE_RULES.md`](docs/INVOICE_RULES.md) | How invoices and calculations should work |
-| [`PDF_LAYOUT.md`](docs/PDF_LAYOUT.md) | How the final invoice should look |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the application is organized |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Technical architecture, Clean Architecture layer design, SQLite persistence, and boundaries |
+| [`PRODUCT_REQUIREMENTS.md`](./PRODUCT_REQUIREMENTS.md) | Application-wide product requirements baseline, core principles, and scope boundaries |
+| [`DECISIONS.md`](./DECISIONS.md) | Authoritative Architectural Decision Records (ADRs D-001 to D-032) |
+| [`OPEN_QUESTIONS.md`](./OPEN_QUESTIONS.md) | System-wide unresolved questions and interim policies |
+| [`INSTALL_TEST.md`](./INSTALL_TEST.md) | Clean-environment Windows installation and first-run verification runbook |
+| [`MANUAL_SMOKE_TEST.md`](./MANUAL_SMOKE_TEST.md) | Manual application smoke-test checklist for releases |
+
+### 🧩 Feature Documentation (`docs/feature/`)
+Feature-specific rules, layouts, workflows, and acceptance runbooks are isolated within their own subdirectories:
+
+| Feature Folder | Core Documents | Description |
+|---|---|---|
+| [**`feature/invoice-generator/`**](./feature/invoice-generator/README.md) | [`INVOICE_RULES.md`](./feature/invoice-generator/INVOICE_RULES.md)<br>[`PDF_LAYOUT.md`](./feature/invoice-generator/PDF_LAYOUT.md)<br>[`ACCEPTANCE_E2E.md`](./feature/invoice-generator/ACCEPTANCE_E2E.md) | Full specifications for invoice lifecycle, GST calculations, numbering, ReportLab PDF layout, and end-to-end acceptance testing. |
+
+### 🗂️ Documentation Structure
+
+```text
+docs/
+├── README.md                      # Documentation index & project overview (this file)
+├── ARCHITECTURE.md                # System-wide architecture and technical design
+├── PRODUCT_REQUIREMENTS.md        # Overarching product requirements & principles
+├── DECISIONS.md                   # Architectural Decision Records (ADRs)
+├── OPEN_QUESTIONS.md              # Cross-cutting open questions & interim policies
+├── INSTALL_TEST.md                # Application installation & packaging verification
+├── MANUAL_SMOKE_TEST.md           # Manual smoke-test checklist
+└── feature/                       # Feature-isolated specifications
+    └── invoice-generator/         # Invoice Generator feature module
+        ├── README.md              # Feature overview & document index
+        ├── INVOICE_RULES.md       # Canonical invoice business & calculation rules
+        ├── PDF_LAYOUT.md          # Professional A4 invoice PDF layout specification
+        └── ACCEPTANCE_E2E.md      # End-to-end acceptance runbook & checklist
+```
 
 ---
 

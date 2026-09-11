@@ -181,7 +181,11 @@ def test_form_live_totals_update(qapp: QApplication, tmp_path: Path) -> None:
         form.customer_combo.setCurrentIndex(1)
         form.line_table.set_lines((_line(),))
         form.refresh_totals()
-        assert "14490.00" in form.totals_label.text()
+        # Full engine-computed breakdown is displayed (Phase 6 remediation).
+        assert form.grand_total_label.text() == "14490.00"
+        assert form.taxable_label.text() == "12280.00"
+        assert form.cgst_label.text() == "1105.20"
+        assert form.sgst_label.text() == "1105.20"
     finally:
         app.close()
 

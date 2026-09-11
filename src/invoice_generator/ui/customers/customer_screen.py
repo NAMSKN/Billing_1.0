@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from invoice_generator.domain.models import Address, Customer
 from invoice_generator.domain.validation import ValidationResult
+from invoice_generator.ui.common.ui_kit import StatusBanner, make_primary, scrollable, title_label
 from invoice_generator.ui.customers.customer_controller import CustomerController
 
 _COLUMNS = ("Name", "GSTIN", "State", "Phone", "Email")  # no UUID column (Req 30.7)
@@ -49,8 +50,12 @@ class CustomerScreen(QWidget):
         self.phone = QLineEdit()
         self.email = QLineEdit()
 
+        self.gstin.setPlaceholderText("15-char GSTIN, e.g. 27AAIFD4249A1ZQ")
+        self.state_code.setPlaceholderText("e.g. 27")
+
+        self.status = StatusBanner()
         self.new_button = QPushButton("New")
-        self.save_button = QPushButton("Save")
+        self.save_button = make_primary(QPushButton("Save"))
         self.archive_button = QPushButton("Archive")
         self.new_button.clicked.connect(self.new_customer)
         self.save_button.clicked.connect(self.save_current)
@@ -60,8 +65,10 @@ class CustomerScreen(QWidget):
         self.refresh()
 
     def _build_layout(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.table, stretch=1)
+        body = QWidget()
+        inner = QVBoxLayout(body)
+        inner.addWidget(title_label("Customers"))
+        inner.addWidget(self.table, stretch=1)
 
         form = QFormLayout()
         form.addRow("Name", self.name)
@@ -71,12 +78,16 @@ class CustomerScreen(QWidget):
         form.addRow("State Code", self.state_code)
         form.addRow("Phone", self.phone)
         form.addRow("Email", self.email)
-        layout.addLayout(form)
+        inner.addLayout(form)
 
+        layout = QVBoxLayout(self)
+        layout.addWidget(scrollable(body), stretch=1)
+        layout.addWidget(self.status)
         buttons = QHBoxLayout()
         buttons.addWidget(self.new_button)
         buttons.addWidget(self.save_button)
         buttons.addWidget(self.archive_button)
+        buttons.addStretch(1)
         layout.addLayout(buttons)
 
     # --- data ---
@@ -94,7 +105,11 @@ class CustomerScreen(QWidget):
                 customer.email,
             )
             for col, value in enumerate(values):
-                self.table.setItem(row, col, QTableWidgetItem(value))
+                cell = QTableWidgetItem(value)
+                cell.setToolTip(value)
+                self.table.setItem(row, col, cell)
+        if not self._rows:
+            self.status.show_info("No customers yet. Fill the form and click Save.")
 
     def new_customer(self) -> None:
         """Clear the form to enter a new customer."""
@@ -152,6 +167,10 @@ class CustomerScreen(QWidget):
         if result.is_ok:
             self._editing = customer
             self.refresh()
+            self.status.show_ok(f"Customer '{customer.name}' saved.")
+        else:
+            fields = ", ".join(sorted({i.field for i in result.blocking}))
+            self.status.show_error(f"Not saved. Please fix: {fields}")
         return result
 
     def archive_selected(self) -> bool:
@@ -161,6 +180,8 @@ class CustomerScreen(QWidget):
             return False
         self._controller.archive(self._rows[row].id)
         self.refresh()
+        self.new_customer()
+        self.status.show_info("Customer archived.")
         return True
 
 

@@ -615,7 +615,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** documented end-to-end run incl a printed page.
   - **DoD:** all acceptance criteria met. _Requirements: 19, 20, 26._
 
-- [ ] 63. Final regression
+- [x] 63. Final regression
   - **Objective:** Full suite green before release.
   - **Dependencies:** all prior.
   - **Scope:** run unit+integration+PDF; golden fixtures; ruff+mypy.

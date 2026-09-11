@@ -8,8 +8,10 @@ never become an inventory feature (Req 29.3).
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from collections.abc import Sequence
 
+from invoice_generator.domain.ids import to_canonical
 from invoice_generator.domain.models import ServiceTemplate
 from invoice_generator.infrastructure.db.mappers import (
     row_to_service_template,
@@ -37,3 +39,9 @@ class SqliteServiceTemplateRepository:
             f"SELECT {_COLUMNS} FROM service_templates ORDER BY name"
         ).fetchall()
         return [row_to_service_template(row) for row in rows]
+
+    def delete(self, template_id: uuid.UUID) -> None:
+        self._conn.execute(
+            "DELETE FROM service_templates WHERE id = ?",
+            (to_canonical(template_id),),
+        )

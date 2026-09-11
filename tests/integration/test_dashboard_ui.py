@@ -155,8 +155,9 @@ def test_screen_shows_recent(qapp: QApplication, tmp_path: Path) -> None:
         _finalize(app, "DI-TECH MOULDS")
         screen = DashboardScreen(DashboardController(app))
         assert screen.table.rowCount() == 1
-        assert "Total: 1" in screen.counts_label.text()
-        assert "Finalized: 1" in screen.counts_label.text()
+        # Metric cards reflect the persisted data (redesigned dashboard).
+        assert screen.card_total.value.text() == "1"
+        assert screen.card_finalized.value.text() == "1"
     finally:
         app.close()
 
