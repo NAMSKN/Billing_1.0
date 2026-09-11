@@ -69,6 +69,44 @@ def test_navigation_switches_screen(qapp: QApplication, tmp_path: Path) -> None:
         app.close()
 
 
+def test_real_screens_are_mounted(qapp: QApplication, tmp_path: Path) -> None:
+    # The window hosts the real screen widgets, not "coming soon" placeholders.
+    from invoice_generator.ui.customers.customer_screen import CustomerScreen
+    from invoice_generator.ui.dashboard.dashboard_screen import DashboardScreen
+    from invoice_generator.ui.invoices.invoice_form import InvoiceForm
+    from invoice_generator.ui.invoices.invoice_list import InvoiceListScreen
+    from invoice_generator.ui.settings.settings_screen import SettingsScreen
+
+    app = build_test_app(tmp_path)
+    try:
+        window = MainWindow(app)
+        mounted = {window._screens[name].__class__ for name in SCREENS}  # noqa: SLF001
+        assert {
+            DashboardScreen,
+            CustomerScreen,
+            InvoiceForm,
+            InvoiceListScreen,
+            SettingsScreen,
+        } == mounted
+    finally:
+        app.close()
+
+
+def test_dashboard_new_invoice_navigates_to_form(qapp: QApplication, tmp_path: Path) -> None:
+    from invoice_generator.ui.dashboard.dashboard_screen import DashboardScreen
+
+    app = build_test_app(tmp_path)
+    try:
+        window = MainWindow(app)
+        window.go_to("Dashboard")
+        dashboard = window._screens["Dashboard"]  # noqa: SLF001
+        assert isinstance(dashboard, DashboardScreen)
+        dashboard.new_invoice_button.click()
+        assert window.current_screen_name() == "Create / Edit Invoice"
+    finally:
+        app.close()
+
+
 def test_go_to_unknown_screen_raises(qapp: QApplication, tmp_path: Path) -> None:
     app = build_test_app(tmp_path)
     try:

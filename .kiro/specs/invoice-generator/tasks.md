@@ -507,7 +507,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** no hard delete of finalized/cancelled. _Requirements: 21._
 
-- [ ] 51. Dashboard
+- [x] 51. Dashboard
   - **Objective:** New invoice, recent, quick search, counts.
   - **Dependencies:** Task 44, 50.
   - **Files:** `ui/dashboard/`, tests.
@@ -517,7 +517,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
 
 ## PHASE 9 — Backup / Restore
 
-- [ ] 52. Safe backup creation
+- [x] 52. Safe backup creation
   - **Objective:** Consistent SQLite backup.
   - **Dependencies:** Task 17.
   - **Files:** `infrastructure/backup/backup.py`, `tests/integration/test_backup_create.py`.
