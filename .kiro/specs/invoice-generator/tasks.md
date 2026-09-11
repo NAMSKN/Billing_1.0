@@ -560,7 +560,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** no number reuse; trusted-state driven. _Requirements: 15.5; DECISIONS D-029; OPEN_QUESTIONS Q-009._
 
-- [ ] 57. Restore failure recovery
+- [x] 57. Restore failure recovery
   - **Objective:** Recover cleanly on failed restore.
   - **Dependencies:** Task 55.
   - **Files:** `infrastructure/backup/restore.py`, tests.

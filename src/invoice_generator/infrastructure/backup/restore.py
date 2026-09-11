@@ -31,7 +31,7 @@ import sqlite3
 import tempfile
 import uuid
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -269,27 +269,35 @@ def restore_backup(
     *,
     database: str | Path,
     safety_backup_dir: str | Path | None = None,
+    on_apply: Callable[[], None] | None = None,
 ) -> RestoreResult:
-    """Restore ``package`` over the live ``database`` following D-029 (Tasks 54-55).
+    """Restore ``package`` over the live ``database`` following D-029 (Tasks 54-57).
 
     Steps: capture current trusted numbering state → persist it outside the DB
     (survives replacement) → safety-backup the current DB → validate the package
-    → atomically replace the live database with the package's snapshot.
-    Reconciliation stays pending for a later task to complete.
+    → atomically replace the live database with the package's snapshot. If any
+    failure occurs while applying the restore (after the safety backup exists),
+    the pre-restore state is recovered from the safety backup so no data is lost
+    (Req 15.4). Reconciliation stays pending for a later task to complete.
 
     Args:
         package: Path to the backup package (``.zip``) produced by Task 53.
         database: Path to the live SQLite database file to replace.
         safety_backup_dir: Directory for the pre-restore safety backup; defaults
             to the database's own directory when not supplied.
+        on_apply: Optional callback invoked after the database has been swapped
+            in but before success is declared. If it raises, recovery from the
+            safety backup runs. Used to model a post-replace failure; production
+            callers leave it unset.
 
     Returns:
         A :class:`RestoreResult` with the preserved reconciliation metadata and
         the path of the safety backup taken before restoring.
 
     Raises:
-        RestoreError: if the package fails validation; the live database is left
-            untouched. The safety backup (taken first) is retained regardless.
+        RestoreError: if the package fails validation (live DB untouched) or if
+            applying the restore fails (the pre-restore state is recovered from
+            the safety backup first). The safety backup is retained regardless.
     """
     db_path = Path(database)
     backup_dir = Path(safety_backup_dir) if safety_backup_dir is not None else db_path.parent
@@ -305,12 +313,22 @@ def restore_backup(
     safety_backup = create_safety_backup(db_path, backup_dir)
 
     # 3. Validate the package; reject an invalid/tampered backup (Req 15.3).
+    #    This happens before touching the live DB, so no recovery is needed.
     result = validate_package(package)
     if not result.ok:
         raise RestoreError(f"backup validation failed: {'; '.join(result.errors)}")
 
-    # 4. Atomically replace the live database with the package's snapshot.
-    _atomic_replace_from_package(package, db_path)
+    # 4. Apply the restore; on any failure, recover the pre-restore state from
+    #    the safety backup so the operator never loses data (Req 15.4).
+    try:
+        _atomic_replace_from_package(package, db_path)
+        if on_apply is not None:
+            on_apply()
+    except Exception as exc:
+        restore_from_safety_backup(safety_backup, db_path)
+        raise RestoreError(
+            f"restore failed and was rolled back from the safety backup: {exc}"
+        ) from exc
 
     metadata = read_reconciliation_metadata(db_path) or ReconciliationMetadata(
         metadata_version=METADATA_VERSION,
@@ -318,6 +336,32 @@ def restore_backup(
         scopes=trusted,
     )
     return RestoreResult(metadata=metadata, safety_backup=safety_backup)
+
+
+def restore_from_safety_backup(safety_backup: str | Path, database: str | Path) -> Path:
+    """Recover the live database from a safety backup after a failed restore.
+
+    Atomically replaces the (possibly partially restored) live database with the
+    safety-backup snapshot taken before the restore began, so the pre-restore
+    state is recovered with no data loss (Req 15.4).
+    """
+    src = Path(safety_backup)
+    db_path = Path(database)
+    if not src.exists():
+        raise RestoreError(f"safety backup not found for recovery: {src}")
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=db_path.parent, suffix=".recover")
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        tmp_path.write_bytes(src.read_bytes())
+        _assert_sqlite_ok(tmp_path)
+        os.replace(tmp_path, db_path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return db_path
 
 
 def _atomic_replace_from_package(package: str | Path, db_path: Path) -> None:
@@ -363,5 +407,6 @@ __all__ = [
     "reconcile_after_restore",
     "reconciliation_metadata_path",
     "restore_backup",
+    "restore_from_safety_backup",
     "write_reconciliation_metadata",
 ]

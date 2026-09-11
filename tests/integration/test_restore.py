@@ -35,6 +35,7 @@ from invoice_generator.infrastructure.backup.restore import (
     read_reconciliation_metadata,
     reconciliation_metadata_path,
     restore_backup,
+    restore_from_safety_backup,
 )
 from tests.support.build_test_app import build_test_app
 from tests.support.id_factory import SequentialIdGenerator
@@ -305,3 +306,88 @@ def test_safety_backup_defaults_beside_database(tmp_path: Path) -> None:
 
     assert result.safety_backup.parent == source.parent
     assert result.safety_backup.exists()
+
+
+# --- failure recovery (Task 57) ---
+
+
+def _invoice_count(db: Path) -> int:
+    conn = sqlite3.connect(db)
+    try:
+        (count,) = conn.execute("SELECT COUNT(*) FROM invoices").fetchone()
+    finally:
+        conn.close()
+    return int(count)
+
+
+def test_injected_failure_recovers_pre_restore_state(tmp_path: Path) -> None:
+    # Package taken at 1 invoice; live DB advanced to 2. A failure is injected
+    # after the DB is swapped in; recovery must restore the pre-restore data (2).
+    source = _seed_db_with_numbering(tmp_path)
+    pkg = _make_package(source, tmp_path / "backup.zip")
+    _issue_second_invoice(tmp_path)
+    assert _invoice_count(source) == 2
+
+    def _boom() -> None:
+        raise RuntimeError("simulated post-replace failure")
+
+    with pytest.raises(RestoreError):
+        restore_backup(pkg, database=source, safety_backup_dir=tmp_path / "safety", on_apply=_boom)
+
+    # Pre-restore state (2 invoices) recovered from the safety backup, not the
+    # packaged snapshot (1 invoice).
+    assert _invoice_count(source) == 2
+
+
+def test_recovered_database_is_valid_sqlite(tmp_path: Path) -> None:
+    source = _seed_db_with_numbering(tmp_path)
+    pkg = _make_package(source, tmp_path / "backup.zip")
+    _issue_second_invoice(tmp_path)
+
+    def _boom() -> None:
+        raise RuntimeError("boom")
+
+    with pytest.raises(RestoreError):
+        restore_backup(pkg, database=source, safety_backup_dir=tmp_path / "safety", on_apply=_boom)
+
+    conn = sqlite3.connect(source)
+    try:
+        (integrity,) = conn.execute("PRAGMA integrity_check").fetchone()
+    finally:
+        conn.close()
+    assert integrity == "ok"
+
+
+def test_restore_from_safety_backup_recovers_data(tmp_path: Path) -> None:
+    source = _seed_db_with_numbering(tmp_path)  # 1 invoice
+    safety = create_safety_backup(source, tmp_path / "safety", timestamp="20260511T090000Z")
+    # Simulate the live DB getting clobbered/emptied after the safety backup.
+    conn = sqlite3.connect(source)
+    try:
+        conn.execute("DELETE FROM invoices")
+        conn.commit()
+    finally:
+        conn.close()
+    assert _invoice_count(source) == 0
+
+    restore_from_safety_backup(safety, source)
+
+    assert _invoice_count(source) == 1  # recovered from the safety backup
+
+
+def test_restore_from_missing_safety_backup_raises(tmp_path: Path) -> None:
+    source = _seed_db_with_numbering(tmp_path)
+    with pytest.raises(RestoreError):
+        restore_from_safety_backup(tmp_path / "no-such-backup.db", source)
+
+
+def test_successful_restore_does_not_recover(tmp_path: Path) -> None:
+    # No injected failure: restore proceeds to the packaged (1-invoice) snapshot.
+    source = _seed_db_with_numbering(tmp_path)
+    pkg = _make_package(source, tmp_path / "backup.zip")
+    _issue_second_invoice(tmp_path)
+    assert _invoice_count(source) == 2
+
+    restore_backup(pkg, database=source, safety_backup_dir=tmp_path / "safety")
+
+    assert _invoice_count(source) == 1  # reverted to the packaged snapshot
