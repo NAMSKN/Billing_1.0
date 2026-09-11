@@ -597,7 +597,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** built artifact + notes.
   - **DoD:** user data outside install dir. _Requirements: 27; DECISIONS D-013._
 
-- [ ] 61. Installation test
+- [x] 61. Installation test
   - **Objective:** Verify clean install runs.
   - **Dependencies:** Task 60.
   - **Scope:** install on a clean Windows environment; first-run creates data dir.
@@ -606,7 +606,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** documented successful install + first run.
   - **DoD:** data dir created; app opens. _Requirements: 27._
 
-- [ ] 62. End-to-end acceptance
+- [x] 62. End-to-end acceptance
   - **Objective:** Full workflow on Windows.
   - **Dependencies:** Task 49, 56, 61.
   - **Scope:** create→finalize→PDF→print→backup→restore→reprint; verify a printed A4.
