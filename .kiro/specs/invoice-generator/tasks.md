@@ -534,7 +534,7 @@ A checkbox alone is not evidence (DECISIONS D-022).
   - **Acceptance evidence:** tests pass.
   - **DoD:** assets included. _Requirements: 15.2; DECISIONS D-019._
 
-- [ ] 54. Restore workflow
+- [x] 54. Restore workflow
   - **Objective:** Capture pre-restore trusted state → validate → confirm → restore atomically.
   - **Dependencies:** Task 53.
   - **Scope:** before replacing data, capture current trusted per-scope high-water into reconciliation metadata stored outside the DB file (so it survives restore); then validate + restore.
