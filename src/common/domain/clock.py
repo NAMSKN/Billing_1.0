@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Protocol, runtime_checkable
 
 
@@ -18,7 +18,7 @@ class SystemClock:
     """Production clock returning real system date and UTC time."""
 
     def now(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     def today(self) -> date:
         return date.today()
@@ -32,10 +32,10 @@ class FrozenClock:
             self._dt = current
             self._date = current.date()
         elif isinstance(current, date):
-            self._dt = datetime.combine(current, datetime.min.time(), tzinfo=timezone.utc)
+            self._dt = datetime.combine(current, datetime.min.time(), tzinfo=UTC)
             self._date = current
         else:
-            self._dt = datetime.now(timezone.utc)
+            self._dt = datetime.now(UTC)
             self._date = self._dt.date()
 
     def now(self) -> datetime:

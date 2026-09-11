@@ -41,6 +41,15 @@ from invoice_generator.infrastructure.db.service_template_repository import (
     SqliteServiceTemplateRepository,
 )
 from invoice_generator.infrastructure.db.settings_repository import SqliteSettingsRepository
+from vendor_customer.application.party_group_service import PartyGroupService
+from vendor_customer.application.party_service import PartyService
+from vendor_customer.infrastructure.db.sqlite_party_group_repository import (
+    SqlitePartyGroupRepository,
+)
+from vendor_customer.infrastructure.db.sqlite_party_repository import SqlitePartyRepository
+from vendor_customer.infrastructure.integration.customer_projection import (
+    InvoiceCustomerProjection,
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +68,8 @@ class Application:
     numbering_service: NumberingService
     pdf_service: PdfService
     print_service: PrintService
+    party_service: PartyService
+    party_group_service: PartyGroupService
 
     def close(self) -> None:
         self.connection.close()
@@ -108,6 +119,19 @@ def build_application(
         clock=the_clock,
     )
 
+    # Customer / Vendor (Party) master. A customer-capable party is mirrored
+    # into the invoice-facing `customers` table (same UUID) via the projection
+    # so existing invoice selection/finalization/snapshots keep working.
+    party_repo = SqlitePartyRepository(connection)
+    party_group_repo = SqlitePartyGroupRepository(connection)
+    party_service = PartyService(
+        party_repo,
+        id_generator=ids,
+        clock=the_clock,
+        customer_projection=InvoiceCustomerProjection(customer_repo),
+    )
+    party_group_service = PartyGroupService(party_group_repo, id_generator=ids)
+
     return Application(
         connection=connection,
         invoice_service=invoice_service,
@@ -117,6 +141,8 @@ def build_application(
         numbering_service=numbering_service,
         pdf_service=pdf_service,
         print_service=print_service,
+        party_service=party_service,
+        party_group_service=party_group_service,
     )
 
 

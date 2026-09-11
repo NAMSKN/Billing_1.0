@@ -1,166 +1,107 @@
-"""SQLite implementation of PartyRepository."""
+"""SQLite implementation of :class:`PartyRepository`.
+
+Uses the schema created by migration ``0003_parties.sql`` (never creates tables
+ad hoc). Parameterized SQL only. Participates in the caller's transaction and
+never begins/commits its own (DECISIONS D-026).
+"""
 
 from __future__ import annotations
 
 import sqlite3
 import uuid
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
-from common.domain.address import Address
-from vendor_customer.domain.models import BankDetails, Party, PartyRole
-from vendor_customer.domain.repositories import PartyRepository
+from invoice_generator.domain.ids import to_canonical
+from vendor_customer.domain.models import Party, PartyType
+from vendor_customer.domain.rules import normalize_company_name
+from vendor_customer.infrastructure.db.mappers import party_to_row, row_to_party
+
+_COLUMNS = (
+    "id, company_type, company_name, contact_person, contact_no, email, "
+    "registration_type, gstin, pan, "
+    "bill_address1, bill_address2, bill_landmark, bill_country, bill_state, "
+    "bill_state_code, bill_city, bill_pincode, "
+    "has_shipping, ship_address1, ship_address2, ship_landmark, ship_country, "
+    "ship_state, ship_state_code, ship_city, ship_pincode, "
+    "distance_for_eway_bill_km, group_id, "
+    "bank_name, bank_ifsc_code, bank_account_number, "
+    "fax_no, website, credit_limit_paise, due_days, note, visible_on_documents, "
+    "custom_field_1, custom_field_2, custom_field_3, "
+    "customer_balance_type, customer_balance_paise, "
+    "vendor_balance_type, vendor_balance_paise, "
+    "is_active, created_at, updated_at"
+)
 
 
-class SqlitePartyRepository(PartyRepository):
-    """SQLite implementation of PartyRepository."""
+class SqlitePartyRepository:
+    """SQLite-backed party repository."""
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
-        self._ensure_table()
 
-    def _ensure_table(self) -> None:
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS parties (
-                id TEXT PRIMARY KEY,
-                display_name TEXT NOT NULL,
-                legal_name TEXT DEFAULT '',
-                role TEXT NOT NULL,
-                gstin TEXT DEFAULT '',
-                pan TEXT DEFAULT '',
-                contact_person TEXT DEFAULT '',
-                phone TEXT DEFAULT '',
-                email TEXT DEFAULT '',
-                billing_line TEXT DEFAULT '',
-                billing_state TEXT DEFAULT '',
-                billing_state_code TEXT DEFAULT '',
-                shipping_line TEXT DEFAULT '',
-                bank_name TEXT DEFAULT '',
-                bank_account TEXT DEFAULT '',
-                bank_ifsc TEXT DEFAULT '',
-                credit_days INTEGER DEFAULT 0,
-                is_active INTEGER DEFAULT 1
-            )
-            """
-        )
+    def get(self, party_id: uuid.UUID) -> Party | None:
+        row = self._conn.execute(
+            f"SELECT {_COLUMNS} FROM parties WHERE id = ?",
+            (to_canonical(party_id),),
+        ).fetchone()
+        return None if row is None else row_to_party(row)
 
-    def get_by_id(self, party_id: uuid.UUID) -> Optional[Party]:
-        cur = self._conn.execute(
-            "SELECT * FROM parties WHERE id = ?", (str(party_id),)
-        )
-        row = cur.fetchone()
-        return self._to_party(row) if row else None
+    def get_by_gstin(self, gstin: str) -> Party | None:
+        clean = gstin.strip().upper()
+        if not clean:
+            return None
+        row = self._conn.execute(
+            f"SELECT {_COLUMNS} FROM parties WHERE gstin = ? ORDER BY is_active DESC LIMIT 1",
+            (clean,),
+        ).fetchone()
+        return None if row is None else row_to_party(row)
 
-    def get_by_gstin(self, gstin: str) -> Optional[Party]:
-        cur = self._conn.execute(
-            "SELECT * FROM parties WHERE gstin = ? AND is_active = 1",
-            (gstin.strip().upper(),),
-        )
-        row = cur.fetchone()
-        return self._to_party(row) if row else None
+    def find_by_name_and_phone(self, company_name: str, contact_no: str) -> Party | None:
+        key = normalize_company_name(company_name)
+        phone = contact_no.strip()
+        if not key or not phone:
+            return None
+        for row in self._conn.execute(
+            f"SELECT {_COLUMNS} FROM parties WHERE contact_no = ?",
+            (phone,),
+        ).fetchall():
+            party = row_to_party(row)
+            if normalize_company_name(party.company_name) == key:
+                return party
+        return None
 
     def list_all(
-        self, role: Optional[PartyRole] = None, include_inactive: bool = False
+        self,
+        *,
+        party_type: PartyType | None = None,
+        include_archived: bool = False,
     ) -> Sequence[Party]:
-        query = "SELECT * FROM parties WHERE 1=1"
+        query = f"SELECT {_COLUMNS} FROM parties WHERE 1 = 1"
         params: list[object] = []
-
-        if not include_inactive:
+        if not include_archived:
             query += " AND is_active = 1"
-
-        if role:
-            query += " AND (role = ? OR role = 'BOTH')"
-            params.append(role.value)
-
-        query += " ORDER BY display_name ASC"
+        if party_type is PartyType.CUSTOMER:
+            query += " AND company_type IN ('CUSTOMER', 'CUSTOMER_VENDOR')"
+        elif party_type is PartyType.VENDOR:
+            query += " AND company_type IN ('VENDOR', 'CUSTOMER_VENDOR')"
+        elif party_type is PartyType.CUSTOMER_VENDOR:
+            query += " AND company_type = 'CUSTOMER_VENDOR'"
+        query += " ORDER BY company_name COLLATE NOCASE ASC"
         rows = self._conn.execute(query, params).fetchall()
-        return [self._to_party(r) for r in rows]
+        return [row_to_party(r) for r in rows]
 
     def save(self, party: Party) -> None:
-        bank_name = party.bank_details.bank_name if party.bank_details else ""
-        bank_account = party.bank_details.account_number if party.bank_details else ""
-        bank_ifsc = party.bank_details.ifsc_code if party.bank_details else ""
-        shipping_line = party.shipping_address.line if party.shipping_address else ""
-
+        row = party_to_row(party)
+        columns = ", ".join(row)
+        placeholders = ", ".join(f":{key}" for key in row)
         self._conn.execute(
-            """
-            INSERT INTO parties (
-                id, display_name, legal_name, role, gstin, pan, contact_person,
-                phone, email, billing_line, billing_state, billing_state_code,
-                shipping_line, bank_name, bank_account, bank_ifsc, credit_days, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                display_name=excluded.display_name,
-                legal_name=excluded.legal_name,
-                role=excluded.role,
-                gstin=excluded.gstin,
-                pan=excluded.pan,
-                contact_person=excluded.contact_person,
-                phone=excluded.phone,
-                email=excluded.email,
-                billing_line=excluded.billing_line,
-                billing_state=excluded.billing_state,
-                billing_state_code=excluded.billing_state_code,
-                shipping_line=excluded.shipping_line,
-                bank_name=excluded.bank_name,
-                bank_account=excluded.bank_account,
-                bank_ifsc=excluded.bank_ifsc,
-                credit_days=excluded.credit_days,
-                is_active=excluded.is_active
-            """,
-            (
-                str(party.id),
-                party.display_name,
-                party.legal_name,
-                party.role.value,
-                party.gstin,
-                party.pan,
-                party.contact_person,
-                party.phone,
-                party.email,
-                party.billing_address.line,
-                party.billing_address.state,
-                party.billing_address.state_code,
-                shipping_line,
-                bank_name,
-                bank_account,
-                bank_ifsc,
-                party.credit_days,
-                1 if party.is_active else 0,
-            ),
+            f"INSERT OR REPLACE INTO parties ({columns}) VALUES ({placeholders})",
+            row,
         )
 
     def archive(self, party_id: uuid.UUID) -> bool:
         cur = self._conn.execute(
-            "UPDATE parties SET is_active = 0 WHERE id = ?", (str(party_id),)
+            "UPDATE parties SET is_active = 0 WHERE id = ?",
+            (to_canonical(party_id),),
         )
         return cur.rowcount > 0
-
-    def _to_party(self, row: tuple) -> Party:
-        # Columns mapped by position from SELECT *
-        return Party(
-            id=uuid.UUID(row[0]),
-            display_name=row[1],
-            legal_name=row[2],
-            role=PartyRole(row[3]),
-            gstin=row[4],
-            pan=row[5],
-            contact_person=row[6],
-            phone=row[7],
-            email=row[8],
-            billing_address=Address(
-                line=row[9],
-                state=row[10],
-                state_code=row[11],
-            ),
-            shipping_address=Address(line=row[12]) if row[12] else None,
-            bank_details=BankDetails(
-                bank_name=row[13],
-                account_number=row[14],
-                ifsc_code=row[15],
-            )
-            if row[13] or row[14] or row[15]
-            else None,
-            credit_days=row[16],
-            is_active=bool(row[17]),
-        )

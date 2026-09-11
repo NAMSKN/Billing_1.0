@@ -1,21 +1,44 @@
-# Tasks: Vendor & Customer Management
+# Tasks: Customer / Vendor (Party) Master — V2 Feature 1
 
-## Phase 1: Domain & Validation Logic
-- [ ] 1. Define `PartyRole` enum (`CUSTOMER`, `VENDOR`, `BOTH`) and `Party` domain entity.
-- [ ] 2. Implement GSTIN mod-36 validation, state-code extraction, and PAN parsing.
-- [ ] 3. Write unit tests for domain entities and validation rules.
+Business-facing roles are `CUSTOMER`, `VENDOR`, `CUSTOMER_VENDOR` (the earlier
+`BOTH` naming is superseded). GSTIN is entered manually with format-only
+validation; there is no GSTIN auto-fill and no online lookup (DECISIONS D-032,
+D-033).
 
-## Phase 2: Persistence & Migrations
-- [ ] 4. Create SQLite migration for unified `parties` schema (or extending customer repository).
-- [ ] 5. Implement `PartyRepository` with role filtering and active/archived queries.
-- [ ] 6. Write integration tests for repository CRUD and soft-deletion.
+## Phase 1: Domain & Validation
+- [x] 1. `PartyType` / `RegistrationType` / `BalanceType` enums and `Party`,
+      `PartyAddress`, `OpeningBalance`, `BankDetails`, `PartyGroup` models.
+- [x] 2. Format-only GSTIN/PAN/IFSC/email validation; India requires state+city;
+      optional fields accept blanks. No auto-derivation.
+- [x] 3. India state / GST-code master (`common.domain.india_states`).
+- [x] 4. Unit tests for domain + rules.
+
+## Phase 2: Persistence & Migration
+- [x] 5. Migration `0003_parties.sql`: `party_groups`, `parties`, and data
+      migration of existing customers into parties (same UUID).
+- [x] 6. `SqlitePartyRepository`, `SqlitePartyGroupRepository`, mappers
+      (INTEGER paise money; canonical UUID at the boundary).
+- [x] 7. Repository/migration integration tests.
 
 ## Phase 3: Application Services
-- [ ] 7. Implement `PartyService` with duplicate GSTIN detection and address handling.
-- [ ] 8. Write unit tests for application service layer.
+- [x] 8. `PartyService` (create/update/archive/list/search/filter, duplicate
+      detection), `PartyGroupService` (create/rename/safe-archive), DTOs, errors.
+- [x] 9. `CustomerProjection` port + `InvoiceCustomerProjection` adapter to keep
+      the invoice-facing `customers` table in sync (DECISIONS D-034).
+- [x] 10. Excel export (scope dialog logic, CUSTOMER_VENDOR dedupe) and import
+      (header/row validation, preview, duplicate detection, import-as).
+- [x] 11. Service + Excel integration tests.
 
-## Phase 4: UI & Workflows
-- [ ] 9. Implement `PartyListScreen` with search, role tabs (`All`, `Customers`, `Vendors`), and status badges.
-- [ ] 10. Implement `PartyEditorDialog` with statutory validation feedback and multi-address tabs.
-- [ ] 11. Wire navigation sidebar and shortcuts (`Ctrl+N`).
-- [ ] 12. Run acceptance suite ([`docs/feature/vendor-customer/ACCEPTANCE.md`](../../../docs/feature/vendor-customer/ACCEPTANCE.md)).
+## Phase 4: UI & Integration
+- [x] 12. `PartyListScreen` (tabs, search, archived filter, Open/Edit/Archive,
+      Import/Export) and `PartyEditorDialog` (all sections; India state dropdown;
+      country default India; document visibility; opening balances).
+- [x] 13. Wire into `bootstrap` + `main_window` ("Customers / Vendors" screen);
+      invoice selector shows only customer-capable parties.
+- [x] 14. Offscreen UI tests.
+
+## Phase 5: Quality gates
+- [x] 15. `pytest`, `ruff`, `mypy --strict` all pass.
+- [x] 16. PyInstaller build produced and launches.
+- [ ] 17. Manual acceptance on Windows (GUI walkthrough, resolutions, printing) —
+      to be performed by the operator; not verifiable in this environment.

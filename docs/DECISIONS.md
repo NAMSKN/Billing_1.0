@@ -196,3 +196,27 @@
 - **Decision:** Reprint/re-export of a finalized invoice must reproduce identical invoice **content** (invoice UUID, number, date, company/customer snapshot, bill-to/ship-to, references, line items, quantities, rates, discounts, HSN/SAC, tax rates and amounts, totals, round-off, amount in words, terms, declaration, payment info, pinned asset versions, template version). It does **not** require byte-for-byte identical PDF files.
 - **Rationale:** PDF binary metadata/object ordering can differ run-to-run; byte comparison would produce false failures for correct reprints.
 - **Consequences:** PDF acceptance tests assert content/value equivalence (extracted text and structured values), never binary hash equality of the PDF.
+
+### D-032: Unified Customer / Vendor (Party) master (V2 Feature 1)
+
+- **Decision:** Customers and vendors are one `Party` entity with a `company_type` of `CUSTOMER`, `VENDOR`, or `CUSTOMER_VENDOR`. A dual-role business is a single record; it is never duplicated. `CUSTOMER_VENDOR` may carry both a customer and a vendor opening balance.
+- **Rationale:** The client requires one master supporting both roles with no duplicate records (V2 F1 sections 1, 7).
+- **Consequences:** New `parties` and `party_groups` tables (migration 0003). Role filters match inclusively (a Customer filter includes `CUSTOMER_VENDOR`). Business-facing role values are exactly `CUSTOMER` / `VENDOR` / `CUSTOMER_VENDOR` (supersedes the earlier `BOTH` naming in the in-progress `vendor-customer` spec).
+
+### D-033: No GSTIN auto-fill; format-only, offline validation
+
+- **Decision:** GSTIN is entered manually. The application never auto-derives PAN or state code from a GSTIN and never performs any online GST lookup. GSTIN/PAN/IFSC are validated by format only. GSTIN is optional unless the selected Registration Type requires it.
+- **Rationale:** Client requirement (V2 F1 sections 2, 8) and the offline-first product invariant.
+- **Consequences:** The earlier `vendor-customer` design requirement to auto-derive State/PAN from GSTIN is withdrawn; `PartyService` performs no derivation.
+
+### D-034: Existing customers migrate into `parties`; `customers` retained as the invoice-facing projection
+
+- **Decision:** Migration 0003 copies every existing `customers` row into `parties` with the **same UUID**. The legacy `customers` table is retained because `invoices.customer_id` references it and finalized invoice snapshots embed a `Customer`. Saving a customer-capable party mirrors it into `customers` (same id) via a `CustomerProjection`; vendor-only parties are not projected and therefore never appear as selectable sales customers.
+- **Rationale:** Existing invoices (draft and finalized) must keep working and historical invoices must not lose their customer (V2 F1 sections 19, 20). Keeping the snapshot shape unchanged preserves finalized-invoice reproduction (D-010, D-031).
+- **Consequences:** Two representations are kept in sync at the party-save boundary. The invoice module is otherwise unchanged. Archiving a party deactivates its customer projection so it drops out of new-invoice selection while history is preserved.
+
+### D-035: Party opening balances stored as exact integer paise
+
+- **Decision:** Customer and vendor opening balances are `Decimal` in the domain and persisted as integer paise, consistent with all other money (D-004). Balance direction is an explicit `DEBIT`/`CREDIT` type. No ledger is built in this feature; balances are stored cleanly for later payment/ledger modules to consume.
+- **Rationale:** Client requirement (V2 F1 section 13) and the money-handling coding standard (never float).
+- **Consequences:** `parties.customer_balance_paise` / `vendor_balance_paise` are INTEGER; amounts round-trip exactly.

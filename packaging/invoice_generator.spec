@@ -27,8 +27,14 @@ datas = collect_data_files(
 )
 
 # PySide6 and pydantic pull in modules dynamically; collect them so the
-# frozen build does not miss an import at runtime.
-hiddenimports = collect_submodules("pydantic")
+# frozen build does not miss an import at runtime. openpyxl (party master
+# Excel import/export, V2 F1) also imports some submodules dynamically.
+hiddenimports = (
+    collect_submodules("pydantic")
+    + collect_submodules("openpyxl")
+    + collect_submodules("vendor_customer")
+    + collect_submodules("common")
+)
 
 a = Analysis(
     ["../src/invoice_generator/main.py"],

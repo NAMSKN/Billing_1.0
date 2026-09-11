@@ -19,6 +19,7 @@ dependencies = [
     "qrcode>=7.4",      # optional UPI QR image
     "pillow>=10.2",     # logo / signature image handling
     "num2words>=0.5.13",  # INR amount-to-words
+    "openpyxl>=3.1,<3.2",  # offline .xlsx import/export for the party master (V2 F1)
 ]
 
 [project.optional-dependencies]
@@ -62,14 +63,15 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 python_version = "3.11"
-packages = ["invoice_generator"]
+packages = ["invoice_generator", "vendor_customer", "common"]
 mypy_path = "src"
 strict = true
 warn_unused_ignores = true
 
 # num2words ships no type stubs / py.typed marker. Ignore only its missing
 # imports (scoped override, not a blanket suppression) so strict mode still
-# applies to all of our own code.
+# applies to all of our own code. openpyxl ships partial stubs but not a
+# py.typed marker recognised by strict mode.
 [[tool.mypy.overrides]]
-module = ["num2words", "reportlab.*", "qrcode"]
+module = ["num2words", "reportlab.*", "qrcode", "openpyxl", "openpyxl.*"]
 ignore_missing_imports = true

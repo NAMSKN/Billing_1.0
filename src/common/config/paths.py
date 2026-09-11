@@ -61,5 +61,12 @@ def resolve_data_paths(base_override: Path | None = None) -> DataPaths:
 
 
 def ensure_data_directories(paths: DataPaths) -> None:
-    for directory in (paths.root, paths.database, paths.exports, paths.backups, paths.assets, paths.logs):
+    for directory in (
+        paths.root,
+        paths.database,
+        paths.exports,
+        paths.backups,
+        paths.assets,
+        paths.logs,
+    ):
         directory.mkdir(parents=True, exist_ok=True)

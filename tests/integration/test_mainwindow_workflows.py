@@ -26,12 +26,14 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from invoice_generator.domain.enums import InvoiceStatus, PaymentStatus  # noqa: E402
 from invoice_generator.domain.models import InvoiceLine  # noqa: E402
-from invoice_generator.ui.customers.customer_screen import CustomerScreen  # noqa: E402
 from invoice_generator.ui.dashboard.dashboard_screen import DashboardScreen  # noqa: E402
 from invoice_generator.ui.invoices.invoice_list import InvoiceListScreen  # noqa: E402
 from invoice_generator.ui.main_window import MainWindow  # noqa: E402
 from invoice_generator.ui.settings.settings_screen import SettingsScreen  # noqa: E402
 from tests.support.build_test_app import build_test_app  # noqa: E402
+from vendor_customer.application.dto import CreatePartyCommand, PartyInput  # noqa: E402
+from vendor_customer.domain.models import PartyAddress, PartyType  # noqa: E402
+from vendor_customer.ui.party_list_screen import PartyListScreen  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -45,9 +47,9 @@ def _settings(window: MainWindow) -> SettingsScreen:
     return screen
 
 
-def _customers(window: MainWindow) -> CustomerScreen:
-    screen = window._screens["Customers"]  # noqa: SLF001
-    assert isinstance(screen, CustomerScreen)
+def _party_screen(window: MainWindow) -> PartyListScreen:
+    screen = window._screens["Customers / Vendors"]  # noqa: SLF001
+    assert isinstance(screen, PartyListScreen)
     return screen
 
 
@@ -73,13 +75,19 @@ def _fill_company(window: MainWindow) -> None:
 
 
 def _add_customer(window: MainWindow, name: str = "DI-TECH MOULDS") -> None:
-    c = _customers(window)
-    c.new_customer()
-    c.name.setText(name)
-    c.bill_line.setText("Plot 9")
-    c.state_name.setText("Maharashtra")
-    c.state_code.setText("27")
-    c.save_current()
+    # Add a customer-capable party through the party service; it is mirrored
+    # into the invoice-facing customer table for selection.
+    window.application.party_service.create_party(
+        CreatePartyCommand(
+            PartyInput(
+                company_name=name,
+                company_type=PartyType.CUSTOMER,
+                billing_address=PartyAddress(
+                    address1="Plot 9", state="Maharashtra", state_code="27", city="Pune"
+                ),
+            )
+        )
+    )
 
 
 def _build_invoice_lines(window: MainWindow) -> None:
@@ -198,16 +206,35 @@ def test_customer_create_edit_archive(qapp: QApplication, tmp_path: Path) -> Non
     try:
         window = MainWindow(app)
         _add_customer(window)
+        screen = _party_screen(window)
+        screen.reload()
+        assert screen.table.rowCount() == 1
         assert len(app.customer_service_repo.list_active()) == 1
-        c = _customers(window)
-        # Edit the saved customer.
-        c.table.selectRow(0)
-        c.phone.setText("9999999999")
-        c.save_current()
+
+        # Edit the saved party via the service (editor dialog is tested separately).
+        party = list(app.party_service.list_parties())[0]
+        from vendor_customer.application.dto import UpdatePartyCommand
+
+        app.party_service.update_party(
+            UpdatePartyCommand(
+                id=party.id,
+                data=PartyInput(
+                    company_name=party.company_name,
+                    company_type=PartyType.CUSTOMER,
+                    contact_no="9999999999",
+                    billing_address=PartyAddress(
+                        state="Maharashtra", state_code="27", city="Pune"
+                    ),
+                ),
+                is_active=True,
+            )
+        )
         assert app.customer_service_repo.list_active()[0].phone == "9999999999"
-        # Archive it.
-        c.table.selectRow(0)
-        c.archive_selected()
+
+        # Archive it -> removed from active list and from invoice selection.
+        app.party_service.archive_party(party.id)
+        screen.reload()
+        assert screen.table.rowCount() == 0
         assert list(app.customer_service_repo.list_active()) == []
     finally:
         app.close()

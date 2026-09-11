@@ -21,8 +21,6 @@ from PySide6.QtWidgets import (
 
 from invoice_generator.bootstrap import Application
 from invoice_generator.ui.common.ui_kit import APP_STYLESHEET
-from invoice_generator.ui.customers.customer_controller import CustomerController
-from invoice_generator.ui.customers.customer_screen import CustomerScreen
 from invoice_generator.ui.dashboard.dashboard_controller import DashboardController
 from invoice_generator.ui.dashboard.dashboard_screen import DashboardScreen
 from invoice_generator.ui.invoices.invoice_form import InvoiceForm
@@ -31,11 +29,13 @@ from invoice_generator.ui.invoices.invoice_list import InvoiceListScreen
 from invoice_generator.ui.invoices.invoice_list_controller import InvoiceListController
 from invoice_generator.ui.settings.settings_controller import SettingsController
 from invoice_generator.ui.settings.settings_screen import SettingsScreen
+from vendor_customer.ui.party_controller import PartyController
+from vendor_customer.ui.party_list_screen import PartyListScreen
 
 # Screen order in both the sidebar and the stack (Req 25.1).
 SCREENS: tuple[str, ...] = (
     "Dashboard",
-    "Customers",
+    "Customers / Vendors",
     "Create / Edit Invoice",
     "Invoice History",
     "Settings",
@@ -83,9 +83,13 @@ class MainWindow(QMainWindow):
 
         dashboard = DashboardScreen(DashboardController(app), navigator=self)
         dashboard.new_invoice_requested.connect(self._on_new_invoice)
+        party_screen = PartyListScreen(
+            PartyController(app.party_service, app.party_group_service)
+        )
+        self._party_screen = party_screen
         return {
             "Dashboard": dashboard,
-            "Customers": CustomerScreen(CustomerController(app.customer_service_repo)),
+            "Customers / Vendors": party_screen,
             "Create / Edit Invoice": self._invoice_form,
             "Invoice History": InvoiceListScreen(InvoiceListController(app), navigator=self),
             "Settings": SettingsScreen(self._settings_controller(app)),
@@ -113,6 +117,8 @@ class MainWindow(QMainWindow):
             screen.refresh()
         elif name == "Invoice History" and isinstance(screen, InvoiceListScreen):
             screen.refresh()
+        elif name == "Customers / Vendors" and isinstance(screen, PartyListScreen):
+            screen.reload()
         elif name == "Create / Edit Invoice":
             self._invoice_form.reload_customers()
             self._invoice_form.reload_service_templates()
