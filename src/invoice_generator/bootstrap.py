@@ -41,6 +41,14 @@ from invoice_generator.infrastructure.db.service_template_repository import (
     SqliteServiceTemplateRepository,
 )
 from invoice_generator.infrastructure.db.settings_repository import SqliteSettingsRepository
+from product_service.application.product_group_service import ProductGroupService
+from product_service.application.product_service import ProductService
+from product_service.infrastructure.db.sqlite_product_group_repository import (
+    SqliteProductGroupRepository,
+)
+from product_service.infrastructure.db.sqlite_product_repository import (
+    SqliteProductRepository,
+)
 from vendor_customer.application.party_group_service import PartyGroupService
 from vendor_customer.application.party_service import PartyService
 from vendor_customer.infrastructure.db.sqlite_party_group_repository import (
@@ -70,6 +78,8 @@ class Application:
     print_service: PrintService
     party_service: PartyService
     party_group_service: PartyGroupService
+    product_service: ProductService
+    product_group_service: ProductGroupService
 
     def close(self) -> None:
         self.connection.close()
@@ -132,6 +142,14 @@ def build_application(
     )
     party_group_service = PartyGroupService(party_group_repo, id_generator=ids)
 
+    # Product / Service master (V2 Feature 2). Independent master data; the
+    # product row never stores GST calculations (the engine owns those) and
+    # never rewrites finalized invoice snapshots.
+    product_repo = SqliteProductRepository(connection)
+    product_group_repo = SqliteProductGroupRepository(connection)
+    product_service = ProductService(product_repo, id_generator=ids, clock=the_clock)
+    product_group_service = ProductGroupService(product_group_repo, id_generator=ids)
+
     return Application(
         connection=connection,
         invoice_service=invoice_service,
@@ -143,6 +161,8 @@ def build_application(
         print_service=print_service,
         party_service=party_service,
         party_group_service=party_group_service,
+        product_service=product_service,
+        product_group_service=product_group_service,
     )
 
 

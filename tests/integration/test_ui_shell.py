@@ -47,6 +47,7 @@ def test_all_five_screens_present(qapp: QApplication, tmp_path: Path) -> None:
         assert SCREENS == (
             "Dashboard",
             "Customers / Vendors",
+            "Products / Services",
             "Create / Edit Invoice",
             "Invoice History",
             "Settings",
@@ -75,6 +76,7 @@ def test_real_screens_are_mounted(qapp: QApplication, tmp_path: Path) -> None:
     from invoice_generator.ui.invoices.invoice_form import InvoiceForm
     from invoice_generator.ui.invoices.invoice_list import InvoiceListScreen
     from invoice_generator.ui.settings.settings_screen import SettingsScreen
+    from product_service.ui.product_list_screen import ProductListScreen
     from vendor_customer.ui.party_list_screen import PartyListScreen
 
     app = build_test_app(tmp_path)
@@ -84,6 +86,7 @@ def test_real_screens_are_mounted(qapp: QApplication, tmp_path: Path) -> None:
         assert {
             DashboardScreen,
             PartyListScreen,
+            ProductListScreen,
             InvoiceForm,
             InvoiceListScreen,
             SettingsScreen,

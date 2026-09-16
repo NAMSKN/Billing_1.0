@@ -43,6 +43,7 @@ from invoice_generator.domain.models import (
     TaxRateConfig,
 )
 from invoice_generator.domain.validation import ValidationResult
+from product_service.domain.models import DiscountType, Product
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,48 @@ class InvoiceFormController:
             if template.id == template_id:
                 return template
         raise ValueError("service template not found")
+
+    # --- product / service master (V2 Feature 2) ---
+
+    def available_sellable_products(self) -> Sequence[Product]:
+        """Active, sellable products/services/charges for a new sales line.
+
+        Archived items and non-sellable products are excluded so they can never
+        be picked for a new sales invoice (product/service rules, section 23).
+        """
+        return self._app.product_service.sellable_products()
+
+    def insert_product(self, product_id: uuid.UUID) -> InvoiceLine:
+        """Append a new editable line pre-filled from a product's defaults.
+
+        Populates the line's description, HSN/SAC, unit, rate (from the
+        product's exclusive sell price), tax rate, and — when the product's sale
+        discount is a percentage — the line discount percent. The line is an
+        ordinary :class:`InvoiceLine` and stays fully editable; the calculation
+        engine still owns all tax/total math (DECISIONS D-006). Inserting a
+        product never rewrites any previously finalized invoice: only this
+        working draft's lines change (DECISIONS D-010).
+        """
+        product = self._app.product_service.get_product(product_id)
+        if product is None:
+            raise ValueError("product not found")
+        if not product.is_sellable or not product.is_active:
+            raise ValueError("product is not available for sale")
+        discount_percent = Decimal(0)
+        if product.sale_discount_type is DiscountType.PERCENTAGE:
+            discount_percent = product.sale_discount_value
+        line = InvoiceLine(
+            sequence=len(self._working.lines) + 1,
+            description=product.name,
+            hsn_sac=product.hsn_sac_code,
+            unit=product.unit_of_measurement,
+            quantity=Decimal(1),
+            rate=product.sell_price,
+            discount_percent=discount_percent,
+            tax_rate=product.tax_rate,
+        )
+        self._working = self._working.model_copy(update={"lines": (*self._working.lines, line)})
+        return line
 
     def update_fields(self, **fields: object) -> Invoice:
         self._working = self._working.model_copy(update=fields)

@@ -33,6 +33,7 @@ hiddenimports = (
     collect_submodules("pydantic")
     + collect_submodules("openpyxl")
     + collect_submodules("vendor_customer")
+    + collect_submodules("product_service")
     + collect_submodules("common")
 )
 

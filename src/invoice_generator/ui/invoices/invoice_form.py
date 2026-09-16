@@ -47,6 +47,7 @@ from invoice_generator.ui.invoices.invoice_form_controller import (
     FinalizationError,
     InvoiceFormController,
 )
+from invoice_generator.ui.invoices.product_picker import ProductPickerDialog
 from invoice_generator.ui.invoices.template_picker import TemplatePickerDialog
 
 
@@ -82,6 +83,10 @@ class InvoiceForm(QWidget):
         self.insert_template_button = QPushButton("Insert Template\u2026")
         self._templates: list[ServiceTemplate] = []
 
+        # Product / Service master (V2 Feature 2): insert an editable line
+        # pre-filled from a product's defaults.
+        self.insert_product_button = QPushButton("Insert Product\u2026")
+
         # Calculation breakdown labels.
         self.taxable_label = QLabel("0.00")
         self.cgst_label = QLabel("0.00")
@@ -111,6 +116,7 @@ class InvoiceForm(QWidget):
         self.pos_code.textChanged.connect(self._sync_place_of_supply)
         self.line_table.changed.connect(self.refresh_totals)
         self.insert_template_button.clicked.connect(self.insert_selected_template)
+        self.insert_product_button.clicked.connect(self.insert_selected_product)
         self.save_draft_button.clicked.connect(self._on_save_draft)
         self.finalize_button.clicked.connect(self._on_finalize)
         self.preview_button.clicked.connect(self._on_preview)
@@ -138,6 +144,7 @@ class InvoiceForm(QWidget):
         lines_title = QLabel("Line Items")
         lines_title.setObjectName("sectionTitle")
         lines_header.addWidget(lines_title, stretch=1)
+        lines_header.addWidget(self.insert_product_button)
         lines_header.addWidget(self.insert_template_button)
         inner.addLayout(lines_header)
 
@@ -249,6 +256,49 @@ class InvoiceForm(QWidget):
             self.status.show_error(report_error(exc, context="invoice.insert_template"))
             return False
         self.status.show_ok(f"Inserted template line: {line.description or line.hsn_sac}.")
+        return True
+
+    # --- product / service master (V2 Feature 2) ---
+
+    def insert_selected_product(self) -> None:
+        """Open the product picker and insert the chosen item as a new line.
+
+        Only active, sellable items are offered. Cancel and empty-state are
+        handled: existing lines are preserved and the invoice is left unchanged
+        on cancel.
+        """
+        if self._controller.is_finalized():
+            self.status.show_info("Finalized invoices cannot be edited.")
+            return
+        products = list(self._controller.available_sellable_products())
+        dialog = ProductPickerDialog(products, self)
+        if dialog.exec() != int(ProductPickerDialog.DialogCode.Accepted):
+            return
+        product_id = dialog.selected_id()
+        if product_id is None:
+            return
+        self.insert_product(product_id)
+
+    def insert_product(self, product_id: uuid.UUID) -> bool:
+        """Insert a product as a new editable line and recalc; return success.
+
+        Preserves any existing edits, pre-fills the line from the product's
+        defaults (name, HSN/SAC, unit, rate, tax rate, percentage discount),
+        and recalculates through the engine. The line remains fully editable
+        per existing invoice rules.
+        """
+        try:
+            self._controller.set_lines(self.line_table.collect_lines())
+            line = self._controller.insert_product(product_id)
+            self.line_table.set_lines(self._controller.working.lines)
+            self.refresh_totals()
+        except ValueError as exc:
+            self.status.show_error(report_error(exc, context="invoice.insert_product"))
+            return False
+        except Exception as exc:  # noqa: BLE001 - boundary
+            self.status.show_error(report_error(exc, context="invoice.insert_product"))
+            return False
+        self.status.show_ok(f"Inserted product line: {line.description or line.hsn_sac}.")
         return True
 
     def _offer_settings_navigation(self) -> None:

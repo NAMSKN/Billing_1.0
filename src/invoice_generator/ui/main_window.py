@@ -29,6 +29,8 @@ from invoice_generator.ui.invoices.invoice_list import InvoiceListScreen
 from invoice_generator.ui.invoices.invoice_list_controller import InvoiceListController
 from invoice_generator.ui.settings.settings_controller import SettingsController
 from invoice_generator.ui.settings.settings_screen import SettingsScreen
+from product_service.ui.product_controller import ProductController
+from product_service.ui.product_list_screen import ProductListScreen
 from vendor_customer.ui.party_controller import PartyController
 from vendor_customer.ui.party_list_screen import PartyListScreen
 
@@ -36,6 +38,7 @@ from vendor_customer.ui.party_list_screen import PartyListScreen
 SCREENS: tuple[str, ...] = (
     "Dashboard",
     "Customers / Vendors",
+    "Products / Services",
     "Create / Edit Invoice",
     "Invoice History",
     "Settings",
@@ -87,13 +90,45 @@ class MainWindow(QMainWindow):
             PartyController(app.party_service, app.party_group_service)
         )
         self._party_screen = party_screen
+        product_screen = ProductListScreen(self._product_controller(app))
+        self._product_screen = product_screen
         return {
             "Dashboard": dashboard,
             "Customers / Vendors": party_screen,
+            "Products / Services": product_screen,
             "Create / Edit Invoice": self._invoice_form,
             "Invoice History": InvoiceListScreen(InvoiceListController(app), navigator=self),
             "Settings": SettingsScreen(self._settings_controller(app)),
         }
+
+    def _product_controller(self, app: Application) -> ProductController:
+        """Build the product controller with the versioned asset store wired.
+
+        Product images are imported through the shared asset store (versioned,
+        content-addressed) and looked up by id for preview; the raw bytes are
+        never stored in the product row (product/service rules, section 10).
+        """
+        from invoice_generator.config import get_app_paths
+        from invoice_generator.infrastructure.assets.asset_store import AssetStore
+        from invoice_generator.infrastructure.db.asset_repository import SqliteAssetRepository
+
+        asset_repo = SqliteAssetRepository(app.connection)
+        store = AssetStore(get_app_paths().assets_dir)
+
+        def _import(source: object) -> object:
+            from pathlib import Path
+
+            asset = store.import_asset(Path(str(source)), kind="product_image")
+            asset_repo.save(asset)
+            app.connection.commit()
+            return asset
+
+        return ProductController(
+            app.product_service,
+            app.product_group_service,
+            asset_import=_import,
+            asset_lookup=asset_repo.get,
+        )
 
     def _settings_controller(self, app: Application) -> SettingsController:
         from invoice_generator.config import get_app_paths
@@ -118,6 +153,8 @@ class MainWindow(QMainWindow):
         elif name == "Invoice History" and isinstance(screen, InvoiceListScreen):
             screen.refresh()
         elif name == "Customers / Vendors" and isinstance(screen, PartyListScreen):
+            screen.reload()
+        elif name == "Products / Services" and isinstance(screen, ProductListScreen):
             screen.reload()
         elif name == "Create / Edit Invoice":
             self._invoice_form.reload_customers()

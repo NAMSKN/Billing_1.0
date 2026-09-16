@@ -1,0 +1,76 @@
+/**
+ * Excel column schema for the Party import/export (faithful port of the Python
+ * columns.py). 31 columns in this exact order. The internal UUID is never
+ * exported. State code, credit limit, and shipping address are intentionally
+ * NOT in the schema (import sets state_code="" and credit_limit=null).
+ */
+export const COL = {
+  NAME: 'CUSTOMER / VENDOR NAME',
+  CONTACT_PERSON: 'CONTACT PERSON',
+  CONTACT_NO: 'CONTACT NO',
+  ADDRESS1: 'ADDRESS 1',
+  ADDRESS2: 'ADDRESS 2',
+  LANDMARK: 'LANDMARK',
+  COUNTRY: 'COUNTRY',
+  STATE: 'STATE',
+  CITY: 'CITY',
+  COMPANY_TYPE: 'COMPANY TYPE',
+  BANK_NAME: 'BANK NAME',
+  BANK_IFSC: 'BANK IFSC CODE',
+  BANK_ACCOUNT: 'BANK ACCOUNT NUMBER',
+  PINCODE: 'PINCODE',
+  FAX: 'FAX NO',
+  WEBSITE: 'WEBSITE',
+  EMAIL: 'EMAIL',
+  REGISTRATION_TYPE: 'Registration Type',
+  GSTIN: 'GSTIN',
+  PAN: 'PAN',
+  EWAY_DISTANCE: 'DISTANCE FOR E-WAY BILL (IN KM)',
+  GROUP: 'CUSTOMER / VENDOR GROUP',
+  CUSTOM1: 'Custom Field 1',
+  CUSTOM2: 'Custom Field 2',
+  CUSTOM3: 'Custom Field 3',
+  DUE_DAYS: 'Due Days',
+  NOTE: 'NOTE',
+  CUST_BAL_TYPE: 'Customer Balance Type',
+  CUST_BAL_AMOUNT: 'Customer Balance Amount',
+  VENDOR_BAL_TYPE: 'Vendor Balance Type',
+  VENDOR_BAL_AMOUNT: 'Vendor Balance Amount',
+} as const;
+
+export const EXPORT_COLUMNS: string[] = [
+  COL.NAME,
+  COL.CONTACT_PERSON,
+  COL.CONTACT_NO,
+  COL.ADDRESS1,
+  COL.ADDRESS2,
+  COL.LANDMARK,
+  COL.COUNTRY,
+  COL.STATE,
+  COL.CITY,
+  COL.COMPANY_TYPE,
+  COL.BANK_NAME,
+  COL.BANK_IFSC,
+  COL.BANK_ACCOUNT,
+  COL.PINCODE,
+  COL.FAX,
+  COL.WEBSITE,
+  COL.EMAIL,
+  COL.REGISTRATION_TYPE,
+  COL.GSTIN,
+  COL.PAN,
+  COL.EWAY_DISTANCE,
+  COL.GROUP,
+  COL.CUSTOM1,
+  COL.CUSTOM2,
+  COL.CUSTOM3,
+  COL.DUE_DAYS,
+  COL.NOTE,
+  COL.CUST_BAL_TYPE,
+  COL.CUST_BAL_AMOUNT,
+  COL.VENDOR_BAL_TYPE,
+  COL.VENDOR_BAL_AMOUNT,
+];
+
+/** The only header required to be present for a valid import file. */
+export const REQUIRED_IMPORT_HEADERS: string[] = [COL.NAME];
