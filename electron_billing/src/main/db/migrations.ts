@@ -384,11 +384,122 @@ CREATE INDEX ix_stock_movements_created ON stock_movements (created_at);
 `,
 };
 
+/**
+ * Migration 0006: Delivery Challan document (V2 Feature). A challan is a
+ * movement-of-goods document (OUTWARD/INWARD) whose counterparty may be a
+ * customer OR a vendor. It reuses the shared `invoice_sequences` table for
+ * numbering (with its own prefix), the calculation engine, and the same
+ * immutable-snapshot model as invoices. challan_number is NULL until finalized;
+ * a partial UNIQUE index makes issued numbers unique (D-028). Deleting a draft
+ * cascades to its line items. Money as INTEGER paise, quantity millis, percent
+ * hundredths — identical scales to invoices.
+ */
+const MIGRATION_0006: Migration = {
+  version: 6,
+  name: 'challans',
+  sql: `
+CREATE TABLE challans (
+    id                      TEXT PRIMARY KEY NOT NULL,
+    company_id              TEXT REFERENCES companies(id),
+    party_id                TEXT REFERENCES parties(id),
+    status                  TEXT NOT NULL DEFAULT 'DRAFT'
+                                CHECK (status IN ('DRAFT', 'FINALIZED', 'CANCELLED')),
+    direction               TEXT NOT NULL DEFAULT 'OUTWARD'
+                                CHECK (direction IN ('OUTWARD', 'INWARD')),
+    challan_type            TEXT NOT NULL DEFAULT 'OTHER'
+                                CHECK (challan_type IN
+                                    ('SUPPLY_ON_APPROVAL', 'JOB_WORK', 'SUPPLY_LIQUID_GAS', 'OTHER')),
+    challan_number          TEXT,
+    challan_date            TEXT NOT NULL DEFAULT '',
+    place_of_supply_state   TEXT NOT NULL DEFAULT '',
+    place_of_supply_code    TEXT NOT NULL DEFAULT '',
+    reverse_charge          INTEGER NOT NULL DEFAULT 0 CHECK (reverse_charge IN (0, 1)),
+    reason_for_eway         TEXT NOT NULL DEFAULT '',
+    delivery_mode           TEXT NOT NULL DEFAULT '',
+
+    party_name              TEXT NOT NULL DEFAULT '',
+    party_gstin             TEXT NOT NULL DEFAULT '',
+    party_pan               TEXT NOT NULL DEFAULT '',
+    party_phone             TEXT NOT NULL DEFAULT '',
+    party_contact_person    TEXT NOT NULL DEFAULT '',
+    party_address_line      TEXT NOT NULL DEFAULT '',
+    party_state_name        TEXT NOT NULL DEFAULT '',
+    party_state_code        TEXT NOT NULL DEFAULT '',
+    party_godown            TEXT NOT NULL DEFAULT '',
+
+    ship_line               TEXT NOT NULL DEFAULT '',
+    ship_state_name         TEXT NOT NULL DEFAULT '',
+    ship_state_code         TEXT NOT NULL DEFAULT '',
+    ship_godown             TEXT NOT NULL DEFAULT '',
+
+    template_version        INTEGER,
+    notes                   TEXT NOT NULL DEFAULT '',
+    terms                   TEXT NOT NULL DEFAULT '',
+    document_note           TEXT NOT NULL DEFAULT '',
+
+    total_taxable_paise     INTEGER NOT NULL DEFAULT 0,
+    total_cgst_paise        INTEGER NOT NULL DEFAULT 0,
+    total_sgst_paise        INTEGER NOT NULL DEFAULT 0,
+    total_igst_paise        INTEGER NOT NULL DEFAULT 0,
+    raw_total_paise         INTEGER NOT NULL DEFAULT 0,
+    round_off_paise         INTEGER NOT NULL DEFAULT 0,
+    grand_total_paise       INTEGER NOT NULL DEFAULT 0,
+    snapshot_json           TEXT,
+    cancelled_at            TEXT NOT NULL DEFAULT '',
+    cancel_reason           TEXT NOT NULL DEFAULT '',
+    created_at              TEXT NOT NULL DEFAULT '',
+    updated_at              TEXT NOT NULL DEFAULT ''
+);
+
+CREATE UNIQUE INDEX ux_challans_challan_number
+    ON challans (challan_number)
+    WHERE challan_number IS NOT NULL;
+
+CREATE INDEX ix_challans_party_id ON challans (party_id);
+
+CREATE TABLE challan_items (
+    id                     TEXT PRIMARY KEY NOT NULL,
+    challan_id             TEXT NOT NULL REFERENCES challans(id) ON DELETE CASCADE,
+    sequence               INTEGER NOT NULL DEFAULT 0,
+    description            TEXT NOT NULL DEFAULT '',
+    hsn_sac                TEXT NOT NULL DEFAULT '',
+    quantity_millis        INTEGER NOT NULL DEFAULT 0,
+    unit                   TEXT NOT NULL DEFAULT '',
+    rate_paise             INTEGER NOT NULL DEFAULT 0,
+    discount_hundredths    INTEGER NOT NULL DEFAULT 0,
+    tax_treatment          TEXT NOT NULL DEFAULT 'TAXABLE'
+                               CHECK (tax_treatment IN ('TAXABLE')),
+    tax_rate_hundredths    INTEGER NOT NULL DEFAULT 0,
+    note                   TEXT NOT NULL DEFAULT '',
+    taxable_paise          INTEGER,
+    cgst_paise             INTEGER,
+    sgst_paise             INTEGER,
+    igst_paise             INTEGER
+);
+
+CREATE INDEX ix_challan_items_challan_id ON challan_items (challan_id);
+`,
+};
+
+/**
+ * Migration 0007: add Motor Vehicle No. to challans (e-way bill transport
+ * detail). Additive column with a safe default so existing rows are unaffected.
+ */
+const MIGRATION_0007: Migration = {
+  version: 7,
+  name: 'challan_vehicle_no',
+  sql: `
+ALTER TABLE challans ADD COLUMN vehicle_no TEXT NOT NULL DEFAULT '';
+`,
+};
+
 const MIGRATIONS: Migration[] = [
   MIGRATION_0001,
   MIGRATION_0003,
   MIGRATION_0004,
   MIGRATION_0005,
+  MIGRATION_0006,
+  MIGRATION_0007,
 ];
 
 export function applyPending(db: Database.Database): void {

@@ -6,6 +6,7 @@ import type {
   SequenceState,
   TaxRateConfig,
 } from './models';
+import type { Challan } from './challan';
 import type { NumberingConfig } from './numbering';
 
 /**
@@ -31,6 +32,13 @@ export interface InvoiceRepository {
   get(id: string): Invoice | null;
   listSummaries(): Invoice[];
   save(invoice: Invoice): void;
+  deleteDraft(id: string): void;
+}
+
+export interface ChallanRepository {
+  get(id: string): Challan | null;
+  listSummaries(): Challan[];
+  save(challan: Challan): void;
   deleteDraft(id: string): void;
 }
 

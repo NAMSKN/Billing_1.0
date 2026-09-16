@@ -48,6 +48,18 @@ export const IpcChannel = {
   PdfPreview: 'pdf:preview',
   PdfExport: 'pdf:export',
 
+  // Delivery Challans
+  ChallanCreateDraft: 'challan:createDraft',
+  ChallanSaveDraft: 'challan:saveDraft',
+  ChallanGet: 'challan:get',
+  ChallanListSummaries: 'challan:listSummaries',
+  ChallanFinalize: 'challan:finalize',
+  ChallanCancel: 'challan:cancel',
+  ChallanDuplicate: 'challan:duplicate',
+  ChallanDeleteDraft: 'challan:deleteDraft',
+  ChallanPdfPreview: 'challan:pdfPreview',
+  ChallanPdfExport: 'challan:pdfExport',
+
   // Backup / restore
   BackupCreate: 'backup:create',
   BackupRestore: 'backup:restore',

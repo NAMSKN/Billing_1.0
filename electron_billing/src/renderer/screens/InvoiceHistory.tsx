@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Search, Copy, Ban, Eye } from 'lucide-react';
+import { FileText, Search, Copy, Ban, Eye, Trash2 } from 'lucide-react';
 import type { InvoiceDto } from '@shared/dto';
 import { InvoiceStatus } from '@shared/domain/enums';
 import { unwrap, ApiError } from '../lib/api';
@@ -42,6 +42,17 @@ export function InvoiceHistory({ onOpen }: { onOpen: (id: string) => void }) {
       onOpen(dup.id);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to duplicate');
+    }
+  };
+
+  const deleteDraft = async (inv: InvoiceDto) => {
+    if (!window.confirm('Delete this draft invoice? This cannot be undone.')) return;
+    try {
+      await unwrap(window.api.invoices.deleteDraft(inv.id));
+      toast.info('Draft deleted');
+      void load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to delete draft');
     }
   };
 
@@ -109,6 +120,11 @@ export function InvoiceHistory({ onOpen }: { onOpen: (id: string) => void }) {
                       <Button variant="ghost" size="sm" onClick={() => onOpen(inv.id)}>
                         <Eye className="h-3.5 w-3.5" /> Open
                       </Button>
+                      {inv.status === InvoiceStatus.DRAFT && (
+                        <Button variant="ghost" size="sm" onClick={() => void deleteDraft(inv)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {inv.status === InvoiceStatus.FINALIZED && (
                         <>
                           <Button variant="ghost" size="sm" onClick={() => void duplicate(inv)}>

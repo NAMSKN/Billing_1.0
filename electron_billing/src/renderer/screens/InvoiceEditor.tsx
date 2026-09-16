@@ -70,6 +70,47 @@ function newLine(): InvoiceLineDto {
   };
 }
 
+/** A fresh, unsaved draft built entirely client-side (persisted on Save). */
+function emptyInvoiceDto(): InvoiceDto {
+  return {
+    id: crypto.randomUUID(),
+    invoice_number: null,
+    status: InvoiceStatus.DRAFT,
+    payment_status: PaymentStatus.UNPAID,
+    invoice_date: todayIso(),
+    company_id: null,
+    customer_id: null,
+    place_of_supply: { state_name: '', state_code: '' },
+    references: {
+      delivery_note: '',
+      delivery_note_date: '',
+      reference_number: '',
+      reference_date: '',
+      buyer_order_number: '',
+      buyer_order_date: '',
+      dispatch_doc_number: '',
+      dispatch_date: '',
+      lr_rr_number: '',
+      vehicle_number: '',
+      dispatched_through: '',
+      destination: '',
+      terms_of_delivery: '',
+      other_references: '',
+    },
+    lines: [newLine()],
+    totals: null,
+    payment_terms: '',
+    due_date: '',
+    notes: '',
+    terms: '',
+    declaration: '',
+    template_version: null,
+    cancelled_at: '',
+    cancel_reason: '',
+    replacement_invoice_id: null,
+  };
+}
+
 export function InvoiceEditor({
   invoiceId,
   onDone,
@@ -105,9 +146,9 @@ export function InvoiceEditor({
         setTaxConfig(settings.tax);
 
         if (invoiceId === 'new') {
-          const draft = await unwrap<InvoiceDto>(window.api.invoices.createDraft());
-          if (draft.lines.length === 0) draft.lines = [newLine()];
-          setInvoice(draft);
+          // Build the draft in-memory only; it is persisted on Save/Finalize so
+          // merely visiting "New Invoice" never leaves a blank draft behind.
+          setInvoice(emptyInvoiceDto());
         } else {
           const inv = await unwrap<InvoiceDto>(window.api.invoices.get(invoiceId));
           setInvoice(inv);

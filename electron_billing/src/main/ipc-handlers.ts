@@ -21,6 +21,10 @@ import {
   taxConfigToDto,
 } from './app/dtoMappers';
 import { FinalizationError } from './app/invoiceService';
+import { ChallanFinalizationError } from './app/challanService';
+import { challanFromDto, challanToDto } from './app/challanDtoMappers';
+import type { ChallanDto } from '@shared/challanDto';
+import { ChallanPdfService } from './pdf/challanPdfService';
 import { PartyValidationError, DuplicatePartyError } from './app/partyService';
 import { partyToDto, partyInputFromDto, groupToDto } from './app/partyDtoMappers';
 import { PartyExcelImporter, type ImportPreview } from './party/excelImport';
@@ -58,7 +62,9 @@ import { randomUUID } from 'node:crypto';
  */
 export function registerIpcHandlers(paths: AppPaths): Application {
   const application = buildApplication(paths.databaseFile);
-  const { invoiceService, companyRepo, customerRepo, settingsService, pdfService } = application;
+  const { invoiceService, challanService, companyRepo, customerRepo, settingsService, pdfService } =
+    application;
+  const challanPdfService = new ChallanPdfService();
 
   handle<string>(IpcChannel.Ping, async () => 'pong');
   handle<AppInfo>(IpcChannel.AppInfo, async () => ({
@@ -231,6 +237,94 @@ export function registerIpcHandlers(paths: AppPaths): Application {
       target = result.filePath;
     }
     return pdfService.export(invoice, target);
+  });
+
+  // --- Delivery Challans ---
+  handle(IpcChannel.ChallanCreateDraft, async () => challanToDto(challanService.createDraft()));
+
+  handle(IpcChannel.ChallanSaveDraft, async (payload) => {
+    const challan = challanFromDto(payload as ChallanDto);
+    challanService.saveDraft(challan);
+    return { challan: challanToDto(challanService.get(challan.id)!) };
+  });
+
+  handle(IpcChannel.ChallanGet, async (id) => {
+    const c = challanService.get(id as string);
+    return c ? challanToDto(c) : null;
+  });
+
+  handle(IpcChannel.ChallanListSummaries, async () =>
+    challanService.listSummaries().map(challanToDto),
+  );
+
+  handle(IpcChannel.ChallanFinalize, async (payload) => {
+    const p = payload as { id: string; challanDate: string };
+    try {
+      const c = challanService.finalize(p.id, {
+        challanDate: new Date(p.challanDate),
+        today: new Date(),
+      });
+      return challanToDto(c);
+    } catch (err) {
+      if (err instanceof ChallanFinalizationError && err.issues?.length) {
+        throw new IpcThrown(
+          'CHALLAN_FINALIZATION_BLOCKED',
+          err.message,
+          err.issues.map((message) => ({ field: '', message, severity: 'blocking' as const })),
+        );
+      }
+      throw err;
+    }
+  });
+
+  handle(IpcChannel.ChallanCancel, async (payload) => {
+    const p = payload as { id: string; reason: string };
+    return challanToDto(challanService.cancel(p.id, p.reason, new Date()));
+  });
+
+  handle(IpcChannel.ChallanDuplicate, async (id) =>
+    challanToDto(challanService.duplicate(id as string)),
+  );
+
+  handle(IpcChannel.ChallanDeleteDraft, async (id) => {
+    challanService.deleteDraft(id as string);
+    return true;
+  });
+
+  handle(IpcChannel.ChallanPdfPreview, async (id) => {
+    const challan = challanService.get(id as string);
+    if (challan === null) throw new Error('challan not found');
+    const pdf = await challanPdfService.render(challan);
+    const previewDir = join(paths.dataDir, 'previews');
+    await mkdir(previewDir, { recursive: true });
+    const file = join(previewDir, `challan_preview_${challan.id}.pdf`);
+    await writeFile(file, pdf);
+    const err = await shell.openPath(file);
+    if (err) throw new Error(err);
+    return file;
+  });
+
+  handle(IpcChannel.ChallanPdfExport, async (payload) => {
+    const p = payload as { id: string; savePath?: string };
+    const challan = challanService.get(p.id);
+    if (challan === null) throw new Error('challan not found');
+    if (!challan.challan_number) throw new Error('only finalized challans can be exported');
+
+    let target = p.savePath;
+    if (!target) {
+      const defaultPath = ChallanPdfService.defaultExportPath(
+        paths.exportsDir,
+        challan.challan_number,
+      );
+      const result = await dialog.showSaveDialog({
+        title: 'Export Delivery Challan PDF',
+        defaultPath,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+      if (result.canceled || !result.filePath) throw new Error('export cancelled');
+      target = result.filePath;
+    }
+    return challanPdfService.export(challan, target);
   });
 
   // --- Backup / restore ---

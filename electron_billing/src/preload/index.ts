@@ -59,6 +59,18 @@ const api = {
     preview: (id: string) => invoke(IpcChannel.PdfPreview, id),
     export: (payload: unknown) => invoke(IpcChannel.PdfExport, payload),
   },
+  challans: {
+    createDraft: (payload?: unknown) => invoke(IpcChannel.ChallanCreateDraft, payload),
+    saveDraft: (payload: unknown) => invoke(IpcChannel.ChallanSaveDraft, payload),
+    get: (id: string) => invoke(IpcChannel.ChallanGet, id),
+    listSummaries: (payload?: unknown) => invoke(IpcChannel.ChallanListSummaries, payload),
+    finalize: (payload: unknown) => invoke(IpcChannel.ChallanFinalize, payload),
+    cancel: (payload: unknown) => invoke(IpcChannel.ChallanCancel, payload),
+    duplicate: (id: string) => invoke(IpcChannel.ChallanDuplicate, id),
+    deleteDraft: (id: string) => invoke(IpcChannel.ChallanDeleteDraft, id),
+    pdfPreview: (id: string) => invoke(IpcChannel.ChallanPdfPreview, id),
+    pdfExport: (payload: unknown) => invoke(IpcChannel.ChallanPdfExport, payload),
+  },
   backup: {
     create: () => invoke(IpcChannel.BackupCreate),
     restore: (payload: unknown) => invoke(IpcChannel.BackupRestore, payload),

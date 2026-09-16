@@ -3,6 +3,7 @@ import { connect } from '../db/connection';
 import { SqliteCompanyRepository } from '../db/companyRepository';
 import { SqliteCustomerRepository } from '../db/customerRepository';
 import { SqliteInvoiceRepository } from '../db/invoiceRepository';
+import { SqliteChallanRepository } from '../db/challanRepository';
 import { SqliteSequenceRepository } from '../db/sequenceRepository';
 import { SqliteSettingsRepository } from '../db/settingsRepository';
 import { SqliteAssetRepository } from '../db/assetRepository';
@@ -21,6 +22,7 @@ import { ReportService } from './reportService';
 import { NumberingService } from './numberingService';
 import { SettingsService } from './settingsService';
 import { InvoiceService } from './invoiceService';
+import { ChallanService } from './challanService';
 import { MetadataReconciliationGate } from './reconciliationGate';
 import { ReconciliationService } from './reconciliationService';
 import { PdfService } from '../pdf/pdfService';
@@ -41,6 +43,7 @@ export interface Application {
   settingsService: SettingsService;
   numberingService: NumberingService;
   invoiceService: InvoiceService;
+  challanService: ChallanService;
   pdfService: PdfService;
   reconciliationService: ReconciliationService;
   partyService: PartyService;
@@ -108,6 +111,21 @@ export function buildApplicationFromDb(
   );
   const partyGroupService = new PartyGroupService(partyGroupRepo, ids);
 
+  // Delivery Challan: a movement-of-goods document whose counterparty may be a
+  // customer OR a vendor (resolved from the party master). Reuses the calc
+  // engine and the shared numbering service (distinct 'DC' prefix).
+  const challanRepo = new SqliteChallanRepository(db);
+  const challanService = new ChallanService(
+    db,
+    challanRepo,
+    companyRepo,
+    partyRepo,
+    numberingService,
+    settingsService,
+    ids,
+    clock,
+  );
+
   // Product / Service master. Independent master data; the product row never
   // stores GST calculations (the engine owns those) and never rewrites
   // finalized invoice snapshots.
@@ -134,6 +152,7 @@ export function buildApplicationFromDb(
     settingsService,
     numberingService,
     invoiceService,
+    challanService,
     pdfService,
     reconciliationService,
     partyService,

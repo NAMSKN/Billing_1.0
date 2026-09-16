@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -10,8 +9,9 @@ import {
   Plus,
   Package,
   Boxes,
+  Truck,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from './lib/cn';
 import { useTheme } from './lib/theme';
 import { ToastProvider } from './components/Toast';
@@ -22,6 +22,8 @@ import { Products } from './screens/Products';
 import { ManageStock } from './screens/ManageStock';
 import { InvoiceHistory } from './screens/InvoiceHistory';
 import { InvoiceEditor } from './screens/InvoiceEditor';
+import { ChallanHistory } from './screens/ChallanHistory';
+import { ChallanEditor } from './screens/ChallanEditor';
 import { Settings } from './screens/Settings';
 
 /**
@@ -36,6 +38,8 @@ export type Route =
   | { name: 'stock' }
   | { name: 'history' }
   | { name: 'invoice'; id: string }
+  | { name: 'challans' }
+  | { name: 'challan'; id: string }
   | { name: 'settings' };
 
 type NavItem = { name: Route['name']; label: string; icon: typeof LayoutDashboard };
@@ -43,6 +47,7 @@ type NavItem = { name: Route['name']; label: string; icon: typeof LayoutDashboar
 const BASE_NAV: NavItem[] = [
   { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { name: 'history', label: 'Invoices', icon: FileText },
+  { name: 'challans', label: 'Delivery Challans', icon: Truck },
   { name: 'customers', label: 'Customers / Vendors', icon: Users },
   { name: 'products', label: 'Products / Services', icon: Package },
   { name: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -70,8 +75,12 @@ function Shell() {
     })();
   }, [route]);
 
+  // Insert Manage Stock right after Products (index of 'products' + 1).
   const nav: NavItem[] = inventoryOn
-    ? [...BASE_NAV.slice(0, 4), STOCK_NAV, ...BASE_NAV.slice(4)]
+    ? (() => {
+        const i = BASE_NAV.findIndex((n) => n.name === 'products');
+        return [...BASE_NAV.slice(0, i + 1), STOCK_NAV, ...BASE_NAV.slice(i + 1)];
+      })()
     : BASE_NAV;
 
   return (
@@ -96,13 +105,22 @@ function Shell() {
             <Plus className="h-4 w-4" />
             New Invoice
           </Button>
+          <Button
+            className="mt-2 w-full"
+            variant="outline"
+            onClick={() => setRoute({ name: 'challan', id: 'new' })}
+          >
+            <Truck className="h-4 w-4" />
+            New Challan
+          </Button>
         </div>
 
         <nav className="mt-4 flex flex-1 flex-col gap-0.5 px-3">
           {nav.map((item) => {
             const active =
               route.name === item.name ||
-              (item.name === 'history' && route.name === 'invoice');
+              (item.name === 'history' && route.name === 'invoice') ||
+              (item.name === 'challans' && route.name === 'challan');
             const Icon = item.icon;
             return (
               <button
@@ -145,6 +163,15 @@ function Shell() {
             <InvoiceEditor
               invoiceId={route.id}
               onDone={() => setRoute({ name: 'history' })}
+            />
+          )}
+          {route.name === 'challans' && (
+            <ChallanHistory onOpen={(id) => setRoute({ name: 'challan', id })} />
+          )}
+          {route.name === 'challan' && (
+            <ChallanEditor
+              challanId={route.id}
+              onDone={() => setRoute({ name: 'challans' })}
             />
           )}
           {route.name === 'settings' && <Settings />}

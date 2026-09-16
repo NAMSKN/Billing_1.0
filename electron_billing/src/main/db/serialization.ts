@@ -8,6 +8,7 @@ import type {
   TaxSummaryRow,
   InvoiceTotals,
 } from '@shared/domain/models';
+import type { ChallanLine, ChallanSnapshot } from '@shared/domain/challan';
 
 /**
  * JSON (de)serialization for the invoice snapshot and references. Decimal
@@ -145,4 +146,56 @@ export function serializeReferences(refs: InvoiceReferences): string {
 
 export function deserializeReferences(json: string): InvoiceReferences {
   return JSON.parse(json) as InvoiceReferences;
+}
+
+// --- Challan snapshot (reuses the money/quantity Decimal round-trip above) ---
+
+function serializeChallanLine(line: ChallanLine): unknown {
+  return {
+    ...line,
+    quantity: decToStr(line.quantity),
+    rate: decToStr(line.rate),
+    discount_percent: decToStr(line.discount_percent),
+    tax_rate: decToStr(line.tax_rate),
+    taxable_amount: line.taxable_amount ? decToStr(line.taxable_amount) : null,
+    cgst_amount: line.cgst_amount ? decToStr(line.cgst_amount) : null,
+    sgst_amount: line.sgst_amount ? decToStr(line.sgst_amount) : null,
+    igst_amount: line.igst_amount ? decToStr(line.igst_amount) : null,
+  };
+}
+
+function deserializeChallanLine(raw: Record<string, unknown>): ChallanLine {
+  return {
+    ...(raw as unknown as ChallanLine),
+    quantity: strToDec(raw.quantity as string),
+    rate: strToDec(raw.rate as string),
+    discount_percent: strToDec(raw.discount_percent as string),
+    tax_rate: strToDec(raw.tax_rate as string),
+    taxable_amount: raw.taxable_amount ? strToDec(raw.taxable_amount as string) : null,
+    cgst_amount: raw.cgst_amount ? strToDec(raw.cgst_amount as string) : null,
+    sgst_amount: raw.sgst_amount ? strToDec(raw.sgst_amount as string) : null,
+    igst_amount: raw.igst_amount ? strToDec(raw.igst_amount as string) : null,
+  };
+}
+
+export function serializeChallanSnapshot(snap: ChallanSnapshot): string {
+  const obj = {
+    ...snap,
+    lines: snap.lines.map(serializeChallanLine),
+    totals: serializeTotals(snap.totals),
+    tax_summary: snap.tax_summary.map(serializeTaxRow),
+    tax_rate_config: serializeConfig(snap.tax_rate_config),
+  };
+  return JSON.stringify(obj);
+}
+
+export function deserializeChallanSnapshot(json: string): ChallanSnapshot {
+  const raw = JSON.parse(json) as Record<string, unknown>;
+  return {
+    ...(raw as unknown as ChallanSnapshot),
+    lines: (raw.lines as Record<string, unknown>[]).map(deserializeChallanLine),
+    totals: deserializeTotals(raw.totals as Record<string, unknown>),
+    tax_summary: (raw.tax_summary as Record<string, unknown>[]).map(deserializeTaxRow),
+    tax_rate_config: deserializeConfig(raw.tax_rate_config as Record<string, unknown>),
+  };
 }
