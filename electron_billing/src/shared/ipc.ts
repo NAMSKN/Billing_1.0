@@ -51,6 +51,7 @@ export const IpcChannel = {
   // Backup / restore
   BackupCreate: 'backup:create',
   BackupRestore: 'backup:restore',
+  RevealPath: 'shell:revealPath',
 
   // Parties (unified customer/vendor master)
   PartyList: 'party:list',

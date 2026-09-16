@@ -63,6 +63,9 @@ const api = {
     create: () => invoke(IpcChannel.BackupCreate),
     restore: (payload: unknown) => invoke(IpcChannel.BackupRestore, payload),
   },
+  shell: {
+    reveal: (path: string) => invoke(IpcChannel.RevealPath, { path }),
+  },
   parties: {
     list: (payload: unknown) => invoke(IpcChannel.PartyList, payload),
     get: (id: string) => invoke(IpcChannel.PartyGet, id),

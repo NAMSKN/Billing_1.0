@@ -165,6 +165,37 @@ describe('customer projection (D-034)', () => {
     expect(mirrored!.bill_to.line).toContain('Bengaluru');
   });
 
+  it('recovers a missing billing state from the GSTIN state code', () => {
+    const custRepo = new SqliteCustomerRepository(db);
+    const projection = new InvoiceCustomerProjection(custRepo);
+    // Billing state left blank, but GSTIN begins with 27 (Maharashtra).
+    const p = party({
+      gstin: '27AAACG1519K1ZP',
+      billing_address: { ...emptyPartyAddress(), address1: 'Wadala East', state: '', state_code: '', city: 'Mumbai' },
+    });
+    projection.syncFromParty(p);
+    const mirrored = custRepo.get(p.id)!;
+    expect(mirrored.bill_to.state_code).toBe('27');
+    expect(mirrored.bill_to.state_name).toBe('Maharashtra');
+    // Ship-to (falls back to billing) also carries the recovered state.
+    expect(mirrored.ship_to.state_code).toBe('27');
+    expect(mirrored.ship_to.state_name).toBe('Maharashtra');
+  });
+
+  it('never overwrites a state the user actually entered', () => {
+    const custRepo = new SqliteCustomerRepository(db);
+    const projection = new InvoiceCustomerProjection(custRepo);
+    // GSTIN says 27 but the address explicitly says Karnataka (29): keep the entry.
+    const p = party({
+      gstin: '27AAACG1519K1ZP',
+      billing_address: { ...emptyPartyAddress(), address1: 'X', state: 'Karnataka', state_code: '29', city: 'Bengaluru' },
+    });
+    projection.syncFromParty(p);
+    const mirrored = custRepo.get(p.id)!;
+    expect(mirrored.bill_to.state_code).toBe('29');
+    expect(mirrored.bill_to.state_name).toBe('Karnataka');
+  });
+
   it('does NOT project a vendor-only party', () => {
     const custRepo = new SqliteCustomerRepository(db);
     const projection = new InvoiceCustomerProjection(custRepo);

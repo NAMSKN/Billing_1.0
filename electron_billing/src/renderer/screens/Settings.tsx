@@ -10,6 +10,8 @@ import {
   Download,
   Upload,
   Boxes,
+  Copy,
+  FolderOpen,
 } from 'lucide-react';
 import type { CompanyDto, TaxRateConfigDto } from '@shared/dto';
 import type { NumberingConfig } from '@shared/domain/numbering';
@@ -396,16 +398,37 @@ function InventoryCard() {
 function BackupCard() {
   const toast = useToast();
   const [busy, setBusy] = useState<'backup' | 'restore' | null>(null);
+  const [lastBackup, setLastBackup] = useState<string | null>(null);
 
   const backup = async () => {
     setBusy('backup');
     try {
       const res = await unwrap<{ backupDir: string }>(window.api.backup.create());
-      toast.success(`Backup created at ${res.backupDir}`);
+      setLastBackup(res.backupDir);
+      toast.success('Backup created');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Backup failed');
     } finally {
       setBusy(null);
+    }
+  };
+
+  const copyPath = async () => {
+    if (!lastBackup) return;
+    try {
+      await navigator.clipboard.writeText(lastBackup);
+      toast.success('Path copied to clipboard');
+    } catch {
+      toast.error('Could not copy path');
+    }
+  };
+
+  const openFolder = async () => {
+    if (!lastBackup) return;
+    try {
+      await unwrap(window.api.shell.reveal(lastBackup));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Could not open folder');
     }
   };
 
@@ -447,6 +470,26 @@ function BackupCard() {
             <Upload className="h-4 w-4" /> {busy === 'restore' ? 'Restoring…' : 'Restore Backup'}
           </Button>
         </div>
+
+        {lastBackup && (
+          <div className="rounded-md border border-border bg-muted/40 p-3">
+            <p className="mb-1 text-xs font-medium text-success">Last backup saved to:</p>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={lastBackup}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 font-mono text-xs"
+              />
+              <Button variant="outline" size="sm" onClick={() => void copyPath()}>
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void openFolder()}>
+                <FolderOpen className="h-3.5 w-3.5" /> Open Folder
+              </Button>
+            </div>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

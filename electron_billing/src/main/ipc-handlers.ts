@@ -241,6 +241,14 @@ export function registerIpcHandlers(paths: AppPaths): Application {
     return { backupDir };
   });
 
+  // Reveal a file or folder in the OS file manager (Explorer).
+  handle(IpcChannel.RevealPath, async (payload) => {
+    const target = (payload as { path?: string }).path;
+    if (!target) throw new Error('No path provided');
+    shell.showItemInFolder(target);
+    return { ok: true };
+  });
+
   handle(IpcChannel.BackupRestore, async (payload) => {
     const p = payload as { backupDir?: string };
     let backupDir = p.backupDir;

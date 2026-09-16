@@ -1,6 +1,7 @@
 import type { Customer, Address } from '@shared/domain/models';
 import type { CustomerRepository } from '@shared/domain/repositories';
 import { isCustomerType, type Party, type PartyAddress } from '@shared/domain/party';
+import { stateNameFor } from '@shared/domain/indiaStates';
 
 /**
  * Keeps the invoice-facing `customers` table in sync with customer-capable
@@ -31,13 +32,35 @@ function toInvoiceAddress(address: PartyAddress): Address {
   };
 }
 
+/**
+ * The first two digits of a GSTIN are the GST state code. When a party's
+ * address was saved without a state (older records / imports), we recover it
+ * from the GSTIN so the invoice — and its Bill-to / Ship-to blocks and
+ * intra/inter-state tax determination — always carry an authoritative state.
+ * This never overwrites a state the user did enter.
+ */
+function withStateFromGstin(address: Address, gstin: string): Address {
+  if (address.state_code.trim() && address.state_name.trim()) return address;
+  const code = gstin.trim().slice(0, 2);
+  const name = stateNameFor(code);
+  if (!name) return address;
+  return {
+    ...address,
+    state_code: address.state_code.trim() || code,
+    state_name: address.state_name.trim() || name,
+  };
+}
+
 export class InvoiceCustomerProjection implements CustomerProjection {
   constructor(private readonly customers: CustomerRepository) {}
 
   syncFromParty(party: Party): void {
     if (!isCustomerType(party.company_type)) return;
-    const bill = toInvoiceAddress(party.billing_address);
-    const ship = toInvoiceAddress(party.shipping_address ?? party.billing_address);
+    const bill = withStateFromGstin(toInvoiceAddress(party.billing_address), party.gstin);
+    const ship = withStateFromGstin(
+      toInvoiceAddress(party.shipping_address ?? party.billing_address),
+      party.gstin,
+    );
     const customer: Customer = {
       id: party.id,
       name: party.company_name,
