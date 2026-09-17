@@ -19,8 +19,15 @@ import type {
   TaxRateConfigDto,
 } from '@shared/dto';
 import type { ProductDto } from '@shared/productDto';
-import { InvoiceStatus, PaymentStatus, TaxTreatment } from '@shared/domain/enums';
-import { DiscountType, ITEM_TYPE_LABEL } from '@shared/domain/product';
+import {
+  InvoiceKind,
+  InvoiceStatus,
+  LineItemType,
+  PaymentStatus,
+  TaxTreatment,
+  INVOICE_KIND_LABEL,
+} from '@shared/domain/enums';
+import { DiscountType, ItemType, ITEM_TYPE_LABEL } from '@shared/domain/product';
 import { unwrap, ApiError } from '../lib/api';
 import { rupees, todayIso } from '../lib/format';
 import { Modal } from '../components/Modal';
@@ -51,6 +58,8 @@ function newLine(): InvoiceLineDto {
   return {
     id: crypto.randomUUID(),
     sequence: 0,
+    item_type: LineItemType.PRODUCT,
+    product_id: null,
     job_or_mould_reference: '',
     component_or_part: '',
     operation: '',
@@ -74,12 +83,14 @@ function newLine(): InvoiceLineDto {
 function emptyInvoiceDto(): InvoiceDto {
   return {
     id: crypto.randomUUID(),
+    kind: InvoiceKind.SALES,
     invoice_number: null,
     status: InvoiceStatus.DRAFT,
     payment_status: PaymentStatus.UNPAID,
     invoice_date: todayIso(),
     company_id: null,
     customer_id: null,
+    party_id: null,
     place_of_supply: { state_name: '', state_code: '' },
     references: {
       delivery_note: '',
@@ -100,10 +111,15 @@ function emptyInvoiceDto(): InvoiceDto {
     lines: [newLine()],
     totals: null,
     payment_terms: '',
+    payment_mode: '',
+    payment_type: '',
     due_date: '',
     notes: '',
     terms: '',
     declaration: '',
+    source_document_type: '',
+    source_document_number: '',
+    source_document_id: null,
     template_version: null,
     cancelled_at: '',
     cancel_reason: '',
@@ -207,6 +223,9 @@ export function InvoiceEditor({
       return { ...i, lines };
     });
 
+  const setRef = (patch: Partial<InvoiceDto['references']>) =>
+    setInvoice((i) => (i ? { ...i, references: { ...i.references, ...patch } } : i));
+
   const addLine = () => setInvoice((i) => (i ? { ...i, lines: [...i.lines, newLine()] } : i));
   const removeLine = (index: number) =>
     setInvoice((i) => (i ? { ...i, lines: i.lines.filter((_, idx) => idx !== index) } : i));
@@ -222,6 +241,9 @@ export function InvoiceEditor({
       product.sale_discount_type === DiscountType.PERCENTAGE ? product.sale_discount_value : '0';
     const line: InvoiceLineDto = {
       ...newLine(),
+      item_type:
+        product.item_type === ItemType.SERVICE ? LineItemType.SERVICE : LineItemType.PRODUCT,
+      product_id: product.id,
       description: product.name,
       hsn_sac: product.hsn_sac_code,
       unit: product.unit_of_measurement,
@@ -296,8 +318,12 @@ export function InvoiceEditor({
   return (
     <div>
       <PageHeader
-        title={invoice.invoice_number ?? (readOnly ? 'Invoice' : 'New Invoice')}
-        description={readOnly ? 'This invoice is a finalized historical record.' : 'Draft — editable until finalized.'}
+        title={invoice.invoice_number ?? `New ${INVOICE_KIND_LABEL[invoice.kind]}`}
+        description={
+          readOnly
+            ? `This ${INVOICE_KIND_LABEL[invoice.kind].toLowerCase()} is a finalized historical record.`
+            : `${INVOICE_KIND_LABEL[invoice.kind]} draft — editable until finalized.`
+        }
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={onDone}>
@@ -354,6 +380,136 @@ export function InvoiceEditor({
                   type="date"
                   value={invoice.due_date}
                   onChange={(e) => setInv({ due_date: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              {invoice.source_document_number && (
+                <div className="col-span-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  Generated from source document{' '}
+                  <span className="font-medium text-foreground">
+                    {invoice.source_document_number}
+                  </span>
+                  {' '}(reference only — this {INVOICE_KIND_LABEL[invoice.kind].toLowerCase()} has its
+                  own number and independently recalculated tax).
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>References &amp; Dispatch</CardTitle>
+            </CardHeader>
+            <CardBody className="grid grid-cols-2 gap-4">
+              <Field label="Reference No.">
+                <Input
+                  value={invoice.references.reference_number}
+                  onChange={(e) => setRef({ reference_number: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Reference Date">
+                <Input
+                  type="date"
+                  value={invoice.references.reference_date}
+                  onChange={(e) => setRef({ reference_date: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Buyer's Order No.">
+                <Input
+                  value={invoice.references.buyer_order_number}
+                  onChange={(e) => setRef({ buyer_order_number: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Buyer's Order Date">
+                <Input
+                  type="date"
+                  value={invoice.references.buyer_order_date}
+                  onChange={(e) => setRef({ buyer_order_date: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Delivery Challan No. (Dispatch Doc)">
+                <Input
+                  value={invoice.references.dispatch_doc_number}
+                  onChange={(e) => setRef({ dispatch_doc_number: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Dispatch Date">
+                <Input
+                  type="date"
+                  value={invoice.references.dispatch_date}
+                  onChange={(e) => setRef({ dispatch_date: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Dispatched Through">
+                <Input
+                  value={invoice.references.dispatched_through}
+                  onChange={(e) => setRef({ dispatched_through: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Destination">
+                <Input
+                  value={invoice.references.destination}
+                  onChange={(e) => setRef({ destination: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Delivery Note">
+                <Input
+                  value={invoice.references.delivery_note}
+                  onChange={(e) => setRef({ delivery_note: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Delivery Note Date">
+                <Input
+                  type="date"
+                  value={invoice.references.delivery_note_date}
+                  onChange={(e) => setRef({ delivery_note_date: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Terms of Delivery">
+                <Input
+                  value={invoice.references.terms_of_delivery}
+                  onChange={(e) => setRef({ terms_of_delivery: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Other References">
+                <Input
+                  value={invoice.references.other_references}
+                  onChange={(e) => setRef({ other_references: e.target.value })}
+                  disabled={readOnly}
+                />
+              </Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment</CardTitle>
+            </CardHeader>
+            <CardBody className="grid grid-cols-2 gap-4">
+              <Field label="Mode / Terms of Payment">
+                <Input
+                  value={invoice.payment_mode}
+                  onChange={(e) => setInv({ payment_mode: e.target.value })}
+                  placeholder="e.g. 30 days / NEFT"
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Payment Type">
+                <Input
+                  value={invoice.payment_type}
+                  onChange={(e) => setInv({ payment_type: e.target.value })}
+                  placeholder="e.g. Cash / Credit / UPI"
                   disabled={readOnly}
                 />
               </Field>
@@ -596,8 +752,19 @@ function LineRow({
   const rateRef = useRef<HTMLInputElement>(null);
   return (
     <div className="rounded-md border border-border p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">Line {index + 1}</span>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Line {index + 1}</span>
+          <Select
+            className="h-7 w-28 text-xs"
+            value={line.item_type}
+            onChange={(e) => onChange({ item_type: e.target.value as LineItemType })}
+            disabled={readOnly}
+          >
+            <option value={LineItemType.PRODUCT}>Product</option>
+            <option value={LineItemType.SERVICE}>Service</option>
+          </Select>
+        </div>
         {!readOnly && canRemove && (
           <button
             onClick={onRemove}

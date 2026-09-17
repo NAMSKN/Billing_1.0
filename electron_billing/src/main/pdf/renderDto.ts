@@ -1,4 +1,4 @@
-import { TaxType } from '@shared/domain/enums';
+import { INVOICE_KIND_TITLE, InvoiceKind, TaxType } from '@shared/domain/enums';
 import { formatMoney, formatQuantity } from '@shared/domain/money';
 import type { Address, Company, Invoice, InvoiceSnapshot } from '@shared/domain/models';
 
@@ -58,11 +58,15 @@ export interface RenderTotals {
 }
 
 export interface InvoiceRenderDTO {
+  title: string;
   invoice_number: string;
   invoice_date: string;
   due_date: string;
   place_of_supply: string;
   payment_terms: string;
+  payment_mode: string;
+  payment_type: string;
+  source_document: string;
   is_intra_state: boolean;
   cancelled: boolean;
   company: RenderParty;
@@ -174,12 +178,22 @@ export function buildRenderDto(invoice: Invoice): InvoiceRenderDTO {
     total_tax: formatMoney(row.total_tax),
   }));
 
+  const kind = snap.kind ?? InvoiceKind.SALES;
+  const sourceDoc =
+    snap.source_document_number && snap.source_document_number.trim()
+      ? snap.source_document_number
+      : '';
+
   return {
+    title: INVOICE_KIND_TITLE[kind] ?? INVOICE_KIND_TITLE[InvoiceKind.SALES],
     invoice_number: invoice.invoice_number ?? '',
     invoice_date: invoice.invoice_date,
     due_date: snap.due_date,
     place_of_supply: formatState(snap.place_of_supply.state_name, snap.place_of_supply.state_code),
     payment_terms: snap.payment_terms,
+    payment_mode: snap.payment_mode ?? '',
+    payment_type: snap.payment_type ?? '',
+    source_document: sourceDoc,
     is_intra_state: intra,
     cancelled: invoice.status === 'CANCELLED',
     company: companyParty(snap.company),

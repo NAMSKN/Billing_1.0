@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { Money } from '@shared/domain/money';
-import { InvoiceStatus, PaymentStatus, TaxTreatment, TaxType } from '@shared/domain/enums';
+import {
+  InvoiceKind,
+  InvoiceStatus,
+  LineItemType,
+  PaymentStatus,
+  TaxTreatment,
+  TaxType,
+} from '@shared/domain/enums';
 import { emptyAddress, emptyReferences } from '@shared/domain/models';
 import type { Company, Customer, Invoice, InvoiceLine } from '@shared/domain/models';
 import { connectMemory } from './connection';
@@ -65,6 +72,8 @@ function makeLine(): InvoiceLine {
   return {
     id: uuidv4(),
     sequence: 0,
+    item_type: LineItemType.PRODUCT,
+    product_id: null,
     job_or_mould_reference: 'DT-663',
     component_or_part: '',
     operation: 'PUNCH GUN DRILLING',
@@ -87,21 +96,28 @@ function makeLine(): InvoiceLine {
 function makeDraft(customerId: string): Invoice {
   return {
     id: uuidv4(),
+    kind: InvoiceKind.SALES,
     invoice_number: null,
     status: InvoiceStatus.DRAFT,
     payment_status: PaymentStatus.UNPAID,
     invoice_date: '',
     company_id: null,
     customer_id: customerId,
+    party_id: null,
     place_of_supply: { state_name: 'Karnataka', state_code: '29' },
     references: emptyReferences(),
     lines: [makeLine()],
     totals: null,
     payment_terms: '',
+    payment_mode: '',
+    payment_type: '',
     due_date: '',
     notes: '',
     terms: '',
     declaration: '',
+    source_document_type: '',
+    source_document_number: '',
+    source_document_id: null,
     template_version: null,
     snapshot: null,
     cancelled_at: '',
@@ -264,6 +280,7 @@ describe('snapshot round trip preserves exact money and tax type', () => {
       grand_total: new Money('14490.00'),
     };
     inv.snapshot = {
+      kind: InvoiceKind.SALES,
       company,
       customer: cust,
       bill_to: cust.bill_to,
@@ -287,10 +304,14 @@ describe('snapshot round trip preserves exact money and tax type', () => {
       ],
       tax_rate_config: STANDARD_18,
       payment_terms: '',
+      payment_mode: '',
+      payment_type: '',
       due_date: '',
       notes: '',
       terms: '',
       declaration: '',
+      source_document_type: '',
+      source_document_number: '',
       grand_total_words: 'INR Fourteen Thousand Four Hundred Ninety Only',
       tax_amount_words: 'INR Two Thousand Two Hundred Ten and Forty Paise Only',
       logo_asset_id: null,

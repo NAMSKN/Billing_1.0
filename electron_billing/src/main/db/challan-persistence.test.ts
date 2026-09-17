@@ -69,6 +69,8 @@ function challan(overrides: Partial<Challan> = {}): Challan {
     reason_for_eway: 'Job work movement',
     delivery_mode: 'By Road',
     vehicle_no: 'MH12AB1234',
+    source_order_number: 'SR/26-27/001',
+    source_order_id: null,
     lines: [line()],
     totals: null,
     notes: 'note',
@@ -94,6 +96,7 @@ describe('challan round trip', () => {
     expect(back.reason_for_eway).toBe('Job work movement');
     expect(back.delivery_mode).toBe('By Road');
     expect(back.vehicle_no).toBe('MH12AB1234');
+    expect(back.source_order_number).toBe('SR/26-27/001');
     expect(back.party.name).toBe('DI-TECH MOULDS');
     expect(back.party.gstin).toBe('29ABCDE1234F1Z5');
     expect(back.party.address.state_code).toBe('29');

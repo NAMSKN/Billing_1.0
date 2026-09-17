@@ -591,6 +591,46 @@ CREATE INDEX ix_order_items_order_id ON order_items (order_id);
 `,
 };
 
+/**
+ * Migration 0009: common invoice structure with a kind discriminator plus
+ * source-document / payment metadata, and per-line item type. Additive columns
+ * with safe defaults so existing invoices are unaffected (kind SALES,
+ * item_type PRODUCT). A PURCHASE invoice bills a vendor (party_id) and leaves
+ * customer_id null; SALES/JOB_WORK/CUSTOM keep customer_id.
+ */
+const MIGRATION_0009: Migration = {
+  version: 9,
+  name: 'invoice_kinds',
+  sql: `
+ALTER TABLE invoices ADD COLUMN kind TEXT NOT NULL DEFAULT 'SALES'
+    CHECK (kind IN ('SALES', 'JOB_WORK', 'PURCHASE', 'CUSTOM'));
+ALTER TABLE invoices ADD COLUMN party_id TEXT REFERENCES parties(id);
+ALTER TABLE invoices ADD COLUMN payment_mode TEXT NOT NULL DEFAULT '';
+ALTER TABLE invoices ADD COLUMN payment_type TEXT NOT NULL DEFAULT '';
+ALTER TABLE invoices ADD COLUMN source_document_type TEXT NOT NULL DEFAULT '';
+ALTER TABLE invoices ADD COLUMN source_document_number TEXT NOT NULL DEFAULT '';
+ALTER TABLE invoices ADD COLUMN source_document_id TEXT;
+
+ALTER TABLE invoice_items ADD COLUMN item_type TEXT NOT NULL DEFAULT 'PRODUCT'
+    CHECK (item_type IN ('PRODUCT', 'SERVICE'));
+ALTER TABLE invoice_items ADD COLUMN product_id TEXT REFERENCES products(id);
+`,
+};
+
+/**
+ * Migration 0010: let a Delivery Challan reference a source order (e.g. a
+ * Service Request) so its detail can prefill and an invoice can cite both the
+ * challan and the buyer's order. Additive columns, default empty.
+ */
+const MIGRATION_0010: Migration = {
+  version: 10,
+  name: 'challan_source_order',
+  sql: `
+ALTER TABLE challans ADD COLUMN source_order_number TEXT NOT NULL DEFAULT '';
+ALTER TABLE challans ADD COLUMN source_order_id TEXT REFERENCES orders(id);
+`,
+};
+
 const MIGRATIONS: Migration[] = [
   MIGRATION_0001,
   MIGRATION_0003,
@@ -599,6 +639,8 @@ const MIGRATIONS: Migration[] = [
   MIGRATION_0006,
   MIGRATION_0007,
   MIGRATION_0008,
+  MIGRATION_0009,
+  MIGRATION_0010,
 ];
 
 export function applyPending(db: Database.Database): void {

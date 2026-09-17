@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { Money } from '@shared/domain/money';
-import { InvoiceStatus, PaymentStatus, TaxTreatment, TaxType } from '@shared/domain/enums';
+import {
+  InvoiceStatus,
+  LineItemType,
+  PaymentStatus,
+  TaxTreatment,
+  TaxType,
+} from '@shared/domain/enums';
 import { emptyAddress } from '@shared/domain/models';
 import type { Company, Customer, Invoice, InvoiceLine } from '@shared/domain/models';
 import { connectMemory } from '../db/connection';
@@ -57,6 +63,8 @@ function lineWithTaxable(rate: string): InvoiceLine {
   return {
     id: uuidv4(),
     sequence: 0,
+    item_type: LineItemType.PRODUCT,
+    product_id: null,
     job_or_mould_reference: '',
     component_or_part: '',
     operation: '',

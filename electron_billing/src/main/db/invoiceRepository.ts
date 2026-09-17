@@ -1,5 +1,11 @@
 import type Database from 'better-sqlite3';
-import { InvoiceStatus, PaymentStatus, TaxTreatment } from '@shared/domain/enums';
+import {
+  InvoiceKind,
+  InvoiceStatus,
+  LineItemType,
+  PaymentStatus,
+  TaxTreatment,
+} from '@shared/domain/enums';
 import { emptyReferences } from '@shared/domain/models';
 import type { Invoice, InvoiceLine, InvoiceTotals } from '@shared/domain/models';
 import type { InvoiceRepository } from '@shared/domain/repositories';
@@ -13,8 +19,10 @@ import {
 
 interface InvoiceRow {
   id: string;
+  kind: string;
   company_id: string | null;
   customer_id: string | null;
+  party_id: string | null;
   status: string;
   payment_status: string;
   invoice_number: string | null;
@@ -25,10 +33,15 @@ interface InvoiceRow {
   logo_asset_id: string | null;
   signature_asset_id: string | null;
   payment_terms: string;
+  payment_mode: string;
+  payment_type: string;
   due_date: string;
   notes: string;
   terms: string;
   declaration: string;
+  source_document_type: string;
+  source_document_number: string;
+  source_document_id: string | null;
   references_json: string;
   total_taxable_paise: number;
   total_cgst_paise: number;
@@ -47,6 +60,8 @@ interface ItemRow {
   id: string;
   invoice_id: string;
   sequence: number;
+  item_type: string;
+  product_id: string | null;
   job_or_mould_reference: string;
   component_or_part: string;
   operation: string;
@@ -69,6 +84,8 @@ function itemRowToLine(row: ItemRow): InvoiceLine {
   return {
     id: toCanonicalUuid(row.id),
     sequence: row.sequence,
+    item_type: row.item_type as LineItemType,
+    product_id: parseUuid(row.product_id),
     job_or_mould_reference: row.job_or_mould_reference,
     component_or_part: row.component_or_part,
     operation: row.operation,
@@ -104,12 +121,14 @@ function rowToInvoice(row: InvoiceRow, lines: InvoiceLine[]): Invoice {
 
   return {
     id: toCanonicalUuid(row.id),
+    kind: row.kind as InvoiceKind,
     invoice_number: row.invoice_number,
     status: row.status as InvoiceStatus,
     payment_status: row.payment_status as PaymentStatus,
     invoice_date: row.invoice_date,
     company_id: parseUuid(row.company_id),
     customer_id: parseUuid(row.customer_id),
+    party_id: parseUuid(row.party_id),
     place_of_supply: {
       state_name: row.place_of_supply_state,
       state_code: row.place_of_supply_code,
@@ -120,10 +139,15 @@ function rowToInvoice(row: InvoiceRow, lines: InvoiceLine[]): Invoice {
     lines,
     totals,
     payment_terms: row.payment_terms,
+    payment_mode: row.payment_mode,
+    payment_type: row.payment_type,
     due_date: row.due_date,
     notes: row.notes,
     terms: row.terms,
     declaration: row.declaration,
+    source_document_type: row.source_document_type,
+    source_document_number: row.source_document_number,
+    source_document_id: parseUuid(row.source_document_id),
     template_version: row.template_version,
     snapshot: row.snapshot_json ? deserializeSnapshot(row.snapshot_json) : null,
     cancelled_at: row.cancelled_at,
@@ -167,30 +191,36 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
     this.db
       .prepare(
         `INSERT INTO invoices (
-           id, company_id, customer_id, status, payment_status, invoice_number,
+           id, kind, company_id, customer_id, party_id, status, payment_status, invoice_number,
            invoice_date, place_of_supply_state, place_of_supply_code, template_version,
-           logo_asset_id, signature_asset_id, payment_terms, due_date, notes, terms,
-           declaration, references_json,
+           logo_asset_id, signature_asset_id, payment_terms, payment_mode, payment_type,
+           due_date, notes, terms, declaration,
+           source_document_type, source_document_number, source_document_id, references_json,
            total_taxable_paise, total_cgst_paise, total_sgst_paise, total_igst_paise,
            raw_total_paise, round_off_paise, grand_total_paise, snapshot_json,
            cancelled_at, cancel_reason, replacement_invoice_id, created_at, updated_at
          ) VALUES (
-           @id, @company_id, @customer_id, @status, @payment_status, @invoice_number,
+           @id, @kind, @company_id, @customer_id, @party_id, @status, @payment_status, @invoice_number,
            @invoice_date, @pos_state, @pos_code, @template_version,
-           @logo_asset_id, @signature_asset_id, @payment_terms, @due_date, @notes, @terms,
-           @declaration, @references_json,
+           @logo_asset_id, @signature_asset_id, @payment_terms, @payment_mode, @payment_type,
+           @due_date, @notes, @terms, @declaration,
+           @source_document_type, @source_document_number, @source_document_id, @references_json,
            @total_taxable_paise, @total_cgst_paise, @total_sgst_paise, @total_igst_paise,
            @raw_total_paise, @round_off_paise, @grand_total_paise, @snapshot_json,
            @cancelled_at, @cancel_reason, @replacement_invoice_id, @created_at, @updated_at
          )
          ON CONFLICT(id) DO UPDATE SET
-           company_id=@company_id, customer_id=@customer_id, status=@status,
-           payment_status=@payment_status, invoice_number=@invoice_number,
+           kind=@kind, company_id=@company_id, customer_id=@customer_id, party_id=@party_id,
+           status=@status, payment_status=@payment_status, invoice_number=@invoice_number,
            invoice_date=@invoice_date, place_of_supply_state=@pos_state,
            place_of_supply_code=@pos_code, template_version=@template_version,
            logo_asset_id=@logo_asset_id, signature_asset_id=@signature_asset_id,
-           payment_terms=@payment_terms, due_date=@due_date, notes=@notes, terms=@terms,
-           declaration=@declaration, references_json=@references_json,
+           payment_terms=@payment_terms, payment_mode=@payment_mode, payment_type=@payment_type,
+           due_date=@due_date, notes=@notes, terms=@terms,
+           declaration=@declaration,
+           source_document_type=@source_document_type,
+           source_document_number=@source_document_number,
+           source_document_id=@source_document_id, references_json=@references_json,
            total_taxable_paise=@total_taxable_paise, total_cgst_paise=@total_cgst_paise,
            total_sgst_paise=@total_sgst_paise, total_igst_paise=@total_igst_paise,
            raw_total_paise=@raw_total_paise, round_off_paise=@round_off_paise,
@@ -200,8 +230,10 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
       )
       .run({
         id: toCanonicalUuid(invoice.id),
+        kind: invoice.kind,
         company_id: invoice.company_id ? toCanonicalUuid(invoice.company_id) : null,
         customer_id: invoice.customer_id ? toCanonicalUuid(invoice.customer_id) : null,
+        party_id: invoice.party_id ? toCanonicalUuid(invoice.party_id) : null,
         status: invoice.status,
         payment_status: invoice.payment_status,
         invoice_number: invoice.invoice_number,
@@ -216,10 +248,17 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
           ? toCanonicalUuid(invoice.snapshot.signature_asset_id)
           : null,
         payment_terms: invoice.payment_terms,
+        payment_mode: invoice.payment_mode,
+        payment_type: invoice.payment_type,
         due_date: invoice.due_date,
         notes: invoice.notes,
         terms: invoice.terms,
         declaration: invoice.declaration,
+        source_document_type: invoice.source_document_type,
+        source_document_number: invoice.source_document_number,
+        source_document_id: invoice.source_document_id
+          ? toCanonicalUuid(invoice.source_document_id)
+          : null,
         references_json: serializeReferences(invoice.references),
         total_taxable_paise: t ? money.toPaise(t.total_taxable) : 0,
         total_cgst_paise: t ? money.toPaise(t.total_cgst) : 0,
@@ -242,12 +281,13 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
     this.db.prepare('DELETE FROM invoice_items WHERE invoice_id = ?').run(toCanonicalUuid(invoice.id));
     const insertItem = this.db.prepare(
       `INSERT INTO invoice_items (
-         id, invoice_id, sequence, job_or_mould_reference, component_or_part, operation,
+         id, invoice_id, sequence, item_type, product_id, job_or_mould_reference,
+         component_or_part, operation,
          description, specification, hsn_sac, quantity_millis, unit, rate_paise,
          discount_hundredths, tax_treatment, tax_rate_hundredths,
          taxable_paise, cgst_paise, sgst_paise, igst_paise
        ) VALUES (
-         @id, @invoice_id, @sequence, @job, @component, @operation,
+         @id, @invoice_id, @sequence, @item_type, @product_id, @job, @component, @operation,
          @description, @specification, @hsn_sac, @quantity_millis, @unit, @rate_paise,
          @discount_hundredths, @tax_treatment, @tax_rate_hundredths,
          @taxable_paise, @cgst_paise, @sgst_paise, @igst_paise
@@ -258,6 +298,8 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
         id: toCanonicalUuid(line.id),
         invoice_id: toCanonicalUuid(invoice.id),
         sequence: line.sequence,
+        item_type: line.item_type,
+        product_id: line.product_id ? toCanonicalUuid(line.product_id) : null,
         job: line.job_or_mould_reference,
         component: line.component_or_part,
         operation: line.operation,

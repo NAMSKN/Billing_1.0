@@ -99,6 +99,7 @@ export interface ChallanSnapshot {
   reason_for_eway: string;
   delivery_mode: string;
   vehicle_no: string;
+  source_order_number: string;
   lines: ChallanLine[];
   totals: InvoiceTotals;
   tax_summary: TaxSummaryRow[];
@@ -127,6 +128,9 @@ export interface Challan {
   reason_for_eway: string;
   delivery_mode: string;
   vehicle_no: string;
+  /** Optional reference to a source order (e.g. a Service Request). */
+  source_order_number: string;
+  source_order_id: string | null;
   lines: ChallanLine[];
   totals: InvoiceTotals | null;
   notes: string;

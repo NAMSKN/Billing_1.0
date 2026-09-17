@@ -105,6 +105,7 @@ function drawMeta(doc: Doc, dto: ChallanRenderDTO): void {
   if (dto.reason_for_eway) parts.push(`Reason for e-Way: ${dto.reason_for_eway}`);
   if (dto.delivery_mode) parts.push(`Delivery Mode: ${dto.delivery_mode}`);
   if (dto.vehicle_no) parts.push(`Motor Vehicle No.: ${dto.vehicle_no}`);
+  if (dto.source_order_number) parts.push(`Order Ref: ${dto.source_order_number}`);
   parts.push(`Reverse Charge: ${dto.reverse_charge ? 'Yes' : 'No'}`);
   if (parts.length) {
     doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(parts.join('   |   '), MARGIN, doc.y, {

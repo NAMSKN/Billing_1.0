@@ -95,6 +95,8 @@ function emptyChallanDto(): ChallanDto {
     reason_for_eway: '',
     delivery_mode: '',
     vehicle_no: '',
+    source_order_number: '',
+    source_order_id: null,
     lines: [newLine()],
     totals: null,
     notes: '',
@@ -455,6 +457,14 @@ export function ChallanEditor({
                   value={challan.vehicle_no}
                   onChange={(e) => setCh({ vehicle_no: e.target.value })}
                   placeholder="e.g. MH12AB1234"
+                  disabled={readOnly}
+                />
+              </Field>
+              <Field label="Source Order No.">
+                <Input
+                  value={challan.source_order_number}
+                  onChange={(e) => setCh({ source_order_number: e.target.value })}
+                  placeholder="e.g. SR/26-27/001 (optional)"
                   disabled={readOnly}
                 />
               </Field>

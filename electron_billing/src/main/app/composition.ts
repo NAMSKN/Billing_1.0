@@ -90,6 +90,14 @@ export function buildApplicationFromDb(
   const pdfService = new PdfService();
   const numberingService = new NumberingService(sequenceRepo, new MetadataReconciliationGate(db));
   const reconciliationService = new ReconciliationService(db, numberingService);
+
+  // Party (customer/vendor) master. A customer-capable party is mirrored into
+  // the invoice-facing `customers` table (same UUID) via the projection so
+  // invoice selection/finalization/snapshots keep working (D-034). The party
+  // repo is also the source for a PURCHASE invoice's vendor.
+  const partyRepo = new SqlitePartyRepository(db);
+  const partyGroupRepo = new SqlitePartyGroupRepository(db);
+
   const invoiceService = new InvoiceService(
     db,
     invoiceRepo,
@@ -97,15 +105,10 @@ export function buildApplicationFromDb(
     customerRepo,
     numberingService,
     settingsService,
+    partyRepo,
     ids,
     clock,
   );
-
-  // Party (customer/vendor) master. A customer-capable party is mirrored into
-  // the invoice-facing `customers` table (same UUID) via the projection so
-  // invoice selection/finalization/snapshots keep working (D-034).
-  const partyRepo = new SqlitePartyRepository(db);
-  const partyGroupRepo = new SqlitePartyGroupRepository(db);
   const partyService = new PartyService(
     partyRepo,
     ids,

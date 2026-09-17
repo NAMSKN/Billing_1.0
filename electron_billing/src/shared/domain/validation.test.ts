@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Money } from './money';
-import { InvoiceStatus, PaymentStatus, TaxTreatment } from './enums';
+import { InvoiceStatus, LineItemType, PaymentStatus, TaxTreatment } from './enums';
 import {
   isValidGstin,
   isValidIfsc,
@@ -38,6 +38,8 @@ function line(overrides: Partial<InvoiceLine> = {}): InvoiceLine {
   return {
     id: '00000000-0000-4000-8000-000000000001',
     sequence: 0,
+    item_type: LineItemType.PRODUCT,
+    product_id: null,
     job_or_mould_reference: '',
     component_or_part: '',
     operation: '',

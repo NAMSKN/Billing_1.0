@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { InvoiceStatus, PaymentStatus, TaxType } from '@shared/domain/enums';
+import { InvoiceKind, InvoiceStatus, PaymentStatus, TaxType } from '@shared/domain/enums';
 import type {
   Company,
   Customer,
@@ -12,6 +12,9 @@ import type {
   CustomerRepository,
   InvoiceRepository,
 } from '@shared/domain/repositories';
+import type { Party, PartyAddress } from '@shared/domain/party';
+import type { PartyRepository } from '../db/partyRepository';
+import { DEFAULT_NUMBERING_CONFIG, type NumberingConfig } from '@shared/domain/numbering';
 import {
   calculateInvoiceTotals,
   calculateLine,
@@ -35,6 +38,14 @@ import type { Clock, IdGenerator } from './clock';
 import { systemClock, uuid4Generator } from './clock';
 
 const DEFAULT_TEMPLATE_VERSION = 1;
+
+/** Document-number prefix per invoice kind (shared invoice_sequences table). */
+const INVOICE_KIND_PREFIX: Record<InvoiceKind, string> = {
+  SALES: 'SE',
+  CUSTOM: 'SE',
+  JOB_WORK: 'JW',
+  PURCHASE: 'PB',
+};
 
 export class InvoiceServiceError extends Error {}
 export class FinalizationError extends Error {
@@ -65,6 +76,7 @@ export class InvoiceService {
     private readonly customers: CustomerRepository,
     private readonly numbering: NumberingService,
     private readonly settings: SettingsService,
+    private readonly parties: PartyRepository,
     private readonly ids: IdGenerator = uuid4Generator,
     private readonly clock: Clock = systemClock,
   ) {}
@@ -149,11 +161,12 @@ export class InvoiceService {
     const { computedLines, taxInputs } = this.computeLines(draft.lines, taxType, taxConfig);
     const totals = calculateInvoiceTotals(taxInputs);
     const taxSummary = buildTaxSummary(taxInputs);
-    const numberingConfig = this.settings.getNumberingConfig();
+    const numberingConfig = this.numberingConfigFor(draft.kind);
 
     return withImmediateTransaction(this.db, () => {
       const allocation = this.numbering.allocate(company.id, args.invoiceDate, numberingConfig);
       const snapshot: InvoiceSnapshot = {
+        kind: draft.kind,
         company,
         customer,
         bill_to: customer.bill_to,
@@ -165,10 +178,14 @@ export class InvoiceService {
         tax_summary: taxSummary,
         tax_rate_config: taxConfig,
         payment_terms: draft.payment_terms,
+        payment_mode: draft.payment_mode,
+        payment_type: draft.payment_type,
         due_date: draft.due_date,
         notes: draft.notes,
         terms: draft.terms,
         declaration: draft.declaration,
+        source_document_type: draft.source_document_type,
+        source_document_number: draft.source_document_number,
         grand_total_words: amountInWords(totals.grand_total),
         tax_amount_words: amountInWords(
           totals.total_cgst.plus(totals.total_sgst).plus(totals.total_igst),
@@ -232,17 +249,22 @@ export class InvoiceService {
     const duplicate: Invoice = {
       ...this.emptyInvoice(),
       id: this.ids(),
+      kind: source.kind,
       status: InvoiceStatus.DRAFT,
       invoice_number: null,
       customer_id: source.customer_id,
+      party_id: source.party_id,
       place_of_supply: source.place_of_supply,
       references: source.references,
       lines: copiedLines,
       payment_terms: source.payment_terms,
+      payment_mode: source.payment_mode,
+      payment_type: source.payment_type,
       due_date: source.due_date,
       notes: source.notes,
       terms: source.terms,
       declaration: source.declaration,
+      // A duplicate is a fresh document; it does not carry the source link.
     };
     withImmediateTransaction(this.db, () => this.invoices.save(duplicate));
     return duplicate;
@@ -296,15 +318,63 @@ export class InvoiceService {
     return { computedLines, taxInputs };
   }
 
+  /**
+   * Resolve company + the billing party. SALES/JOB_WORK/CUSTOM bill a customer
+   * (from the customers table). A PURCHASE invoice records a purchase from a
+   * vendor (from the party master) — the vendor is projected into a
+   * Customer-shaped party object so the engine, validation, and snapshot all
+   * work unchanged; the persisted invoice keeps customer_id null and carries the
+   * vendor via party_id + snapshot.
+   */
   private resolveParties(invoice: Invoice): { company: Company; customer: Customer } {
     const company = this.companies.getActive();
     if (company === null) throw new InvoiceServiceError('no active company is configured');
+
+    if (invoice.kind === InvoiceKind.PURCHASE) {
+      if (invoice.party_id === null) {
+        throw new InvoiceServiceError('purchase invoice has no vendor selected');
+      }
+      const party = this.parties.get(invoice.party_id);
+      if (party === null) throw new InvoiceServiceError('selected vendor does not exist');
+      return { company, customer: this.partyAsCustomer(party) };
+    }
+
     if (invoice.customer_id === null) {
       throw new InvoiceServiceError('invoice has no customer selected');
     }
     const customer = this.customers.get(invoice.customer_id);
     if (customer === null) throw new InvoiceServiceError('selected customer does not exist');
     return { company, customer };
+  }
+
+  /** Project a vendor party into the invoice-facing Customer shape. */
+  private partyAsCustomer(party: Party): Customer {
+    const addr = (a: PartyAddress) => ({
+      line: [a.address1, a.address2, a.landmark, a.city, a.pincode]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(', '),
+      state_name: a.state,
+      state_code: a.state_code,
+      godown: '',
+    });
+    const bill = addr(party.billing_address);
+    const ship = addr(party.shipping_address ?? party.billing_address);
+    return {
+      id: party.id,
+      name: party.company_name,
+      gstin: party.gstin,
+      phone: party.contact_no,
+      email: party.email,
+      bill_to: bill,
+      ship_to: ship,
+      is_active: party.is_active,
+    };
+  }
+
+  private numberingConfigFor(kind: InvoiceKind): NumberingConfig {
+    const base = this.settings.getNumberingConfig() ?? DEFAULT_NUMBERING_CONFIG;
+    return { ...base, prefix: INVOICE_KIND_PREFIX[kind] };
   }
 
   private toIso(date: Date): string {
@@ -315,12 +385,14 @@ export class InvoiceService {
   private emptyInvoice(): Invoice {
     return {
       id: '',
+      kind: InvoiceKind.SALES,
       invoice_number: null,
       status: InvoiceStatus.DRAFT,
       payment_status: PaymentStatus.UNPAID,
       invoice_date: '',
       company_id: null,
       customer_id: null,
+      party_id: null,
       place_of_supply: { state_name: '', state_code: '' },
       references: {
         delivery_note: '',
@@ -341,10 +413,15 @@ export class InvoiceService {
       lines: [],
       totals: null,
       payment_terms: '',
+      payment_mode: '',
+      payment_type: '',
       due_date: '',
       notes: '',
       terms: '',
       declaration: '',
+      source_document_type: '',
+      source_document_number: '',
+      source_document_id: null,
       template_version: null,
       snapshot: null,
       cancelled_at: '',

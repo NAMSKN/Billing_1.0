@@ -134,6 +134,8 @@ export function challanToDto(c: Challan): ChallanDto {
     reason_for_eway: c.reason_for_eway,
     delivery_mode: c.delivery_mode,
     vehicle_no: c.vehicle_no,
+    source_order_number: c.source_order_number,
+    source_order_id: c.source_order_id,
     lines: c.lines.map(lineToDto),
     totals: c.totals ? totalsToDto(c.totals) : null,
     notes: c.notes,
@@ -164,6 +166,8 @@ export function challanFromDto(d: ChallanDto): Challan {
     reason_for_eway: d.reason_for_eway,
     delivery_mode: d.delivery_mode,
     vehicle_no: d.vehicle_no,
+    source_order_number: d.source_order_number,
+    source_order_id: d.source_order_id,
     lines: d.lines.map(lineFromDto),
     totals: null, // totals are engine-computed at finalize, never trusted from UI
     notes: d.notes,

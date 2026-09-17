@@ -63,6 +63,8 @@ export interface ChallanDto {
   reason_for_eway: string;
   delivery_mode: string;
   vehicle_no: string;
+  source_order_number: string;
+  source_order_id: string | null;
   lines: ChallanLineDto[];
   totals: InvoiceTotalsDto | null;
   notes: string;

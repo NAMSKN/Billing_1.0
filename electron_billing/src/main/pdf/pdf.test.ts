@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { Money } from '@shared/domain/money';
-import { TaxTreatment } from '@shared/domain/enums';
+import { LineItemType, TaxTreatment } from '@shared/domain/enums';
 import { emptyAddress } from '@shared/domain/models';
 import type { Company, Customer, Invoice, InvoiceLine } from '@shared/domain/models';
 import { connectMemory } from '../db/connection';
@@ -58,6 +58,8 @@ function line(rate: string, extras: Partial<InvoiceLine> = {}): InvoiceLine {
   return {
     id: uuidv4(),
     sequence: 0,
+    item_type: LineItemType.PRODUCT,
+    product_id: null,
     job_or_mould_reference: 'DT-663',
     component_or_part: '',
     operation: 'PUNCH GUN DRILLING',

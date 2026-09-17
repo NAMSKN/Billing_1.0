@@ -32,3 +32,42 @@ export const TaxTreatment = {
   TAXABLE: 'TAXABLE',
 } as const;
 export type TaxTreatment = (typeof TaxTreatment)[keyof typeof TaxTreatment];
+
+/**
+ * The kind of invoice, driving the document number prefix, the printed title,
+ * and which party master the invoice bills. A common invoice structure serves
+ * all kinds (D-006 single engine still owns tax).
+ *   - SALES     : bills a customer. Number prefix SE. Title "TAX INVOICE".
+ *   - JOB_WORK  : bills a customer; service line items. Prefix JW. "JOB WORK INVOICE".
+ *   - PURCHASE  : records a purchase from a vendor. Prefix PB. "PURCHASE INVOICE".
+ *   - CUSTOM    : a plain sales invoice with no source document. Prefix SE.
+ */
+export const InvoiceKind = {
+  SALES: 'SALES',
+  JOB_WORK: 'JOB_WORK',
+  PURCHASE: 'PURCHASE',
+  CUSTOM: 'CUSTOM',
+} as const;
+export type InvoiceKind = (typeof InvoiceKind)[keyof typeof InvoiceKind];
+
+export const INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
+  SALES: 'Sales Invoice',
+  JOB_WORK: 'Job Work Invoice',
+  PURCHASE: 'Purchase Invoice',
+  CUSTOM: 'Invoice',
+};
+
+/** The printed document title per kind. */
+export const INVOICE_KIND_TITLE: Record<InvoiceKind, string> = {
+  SALES: 'TAX INVOICE',
+  JOB_WORK: 'JOB WORK INVOICE',
+  PURCHASE: 'PURCHASE INVOICE',
+  CUSTOM: 'TAX INVOICE',
+};
+
+/** A line references a physical product or a service (SAC-based). */
+export const LineItemType = {
+  PRODUCT: 'PRODUCT',
+  SERVICE: 'SERVICE',
+} as const;
+export type LineItemType = (typeof LineItemType)[keyof typeof LineItemType];

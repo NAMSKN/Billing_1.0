@@ -66,8 +66,8 @@ function drawHeader(doc: Doc, dto: InvoiceRenderDTO): void {
   if (dto.company.gstin) companyLines.push(`GSTIN: ${dto.company.gstin}`);
   doc.text(companyLines.join('\n'), MARGIN, doc.y + 2, { width: 300 });
 
-  // Title block (right).
-  doc.font('Helvetica-Bold').fontSize(16).fillColor(ACCENT).text('TAX INVOICE', MARGIN, MARGIN, {
+  // Title block (right) — varies by invoice kind.
+  doc.font('Helvetica-Bold').fontSize(16).fillColor(ACCENT).text(dto.title, MARGIN, MARGIN, {
     width: CONTENT_WIDTH,
     align: 'right',
   });
@@ -78,6 +78,8 @@ function drawHeader(doc: Doc, dto: InvoiceRenderDTO): void {
     dto.due_date ? `Due: ${dto.due_date}` : '',
     dto.place_of_supply ? `Place of Supply: ${dto.place_of_supply}` : '',
     dto.payment_terms ? `Terms: ${dto.payment_terms}` : '',
+    dto.payment_type ? `Payment: ${dto.payment_type}` : '',
+    dto.source_document ? `Source: ${dto.source_document}` : '',
   ].filter(Boolean);
   doc.text(meta.join('\n'), MARGIN, MARGIN + 26, { width: CONTENT_WIDTH, align: 'right' });
 

@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { InvoiceStatus, TaxType } from '@shared/domain/enums';
+import { InvoiceKind, InvoiceStatus, TaxType } from '@shared/domain/enums';
 import type {
   Address,
   Company,
@@ -287,12 +287,18 @@ export class OrderService {
   }
 
   /**
-   * Convert a confirmed/completed order into a NEW invoice DRAFT. Party,
-   * address, contact, GSTIN, reverse charge, ship-to, place of supply, and
-   * lines are copied; the source order number/date are kept as a reference
-   * only; a new invoice number is generated and tax + round-off are RECALCULATED
-   * at the user's later finalize. Purchase orders cannot become invoices in V1
-   * (there is no purchase-invoice model; an invoice bills a customer).
+   * Convert a confirmed/completed order into a NEW invoice DRAFT, mapping the
+   * order type to an invoice kind:
+   *   - SALES_ORDER     -> SALES invoice   (bills the customer)
+   *   - SERVICE_REQUEST -> JOB_WORK invoice (bills the customer; SERVICE lines)
+   *   - PURCHASE_ORDER  -> PURCHASE invoice (records a purchase from the vendor)
+   *
+   * Party, address, contact, GSTIN, reverse charge, ship-to, place of supply,
+   * delivery mode, line items (with item_type preserved), terms, notes, and
+   * document remarks are copied. The source order number/date are kept ONLY as
+   * a reference (never as the invoice number). A new invoice number is generated
+   * and tax + round-off are RECALCULATED at the user's later finalize (backend
+   * is the source of truth). The source document is retained on the invoice.
    */
   convertToInvoice(orderId: string): Invoice {
     const order = this.orders.get(orderId);
@@ -300,24 +306,35 @@ export class OrderService {
     if (order.status !== OrderStatus.CONFIRMED && order.status !== OrderStatus.COMPLETED) {
       throw new OrderServiceError('only a confirmed or completed order can be converted');
     }
-    if (order.order_type === OrderType.PURCHASE_ORDER) {
-      throw new OrderServiceError(
-        'Purchase order conversion to an invoice is not supported in V1 (an invoice bills a customer).',
-      );
-    }
     if (order.party_id === null) {
       throw new OrderServiceError('order has no party to carry to the invoice');
     }
 
+    const isPurchase = order.order_type === OrderType.PURCHASE_ORDER;
+    const kind =
+      order.order_type === OrderType.SALES_ORDER
+        ? InvoiceKind.SALES
+        : order.order_type === OrderType.SERVICE_REQUEST
+          ? InvoiceKind.JOB_WORK
+          : InvoiceKind.PURCHASE;
+
+    // Source-document reference (never the invoice number). Terms of delivery
+    // carries the order's delivery mode; buyer's order no mirrors the source.
     const references = {
       ...emptyReferences(),
       reference_number: order.order_number ?? '',
       reference_date: order.order_date,
+      buyer_order_number: order.order_number ?? '',
+      buyer_order_date: order.order_date,
+      terms_of_delivery: order.delivery_mode,
     };
 
     const lines: InvoiceLine[] = order.lines.map((line, i) => ({
       id: this.ids(),
       sequence: i,
+      // Preserve the line kind (a Job Work invoice keeps SERVICE lines).
+      item_type: line.item_type,
+      product_id: line.product_id,
       job_or_mould_reference: '',
       component_or_part: '',
       operation: '',
@@ -339,21 +356,29 @@ export class OrderService {
 
     const base: Invoice = {
       id: '',
+      kind,
       invoice_number: null,
       status: InvoiceStatus.DRAFT,
       payment_status: 'UNPAID' as Invoice['payment_status'],
       invoice_date: '',
       company_id: null,
-      customer_id: order.party_id,
+      // SALES/JOB_WORK bill a customer; PURCHASE bills a vendor (party_id).
+      customer_id: isPurchase ? null : order.party_id,
+      party_id: isPurchase ? order.party_id : null,
       place_of_supply: order.place_of_supply,
       references,
       lines,
       totals: null,
       payment_terms: '',
+      payment_mode: '',
+      payment_type: '',
       due_date: '',
       notes: order.notes,
       terms: order.terms,
       declaration: '',
+      source_document_type: order.order_type,
+      source_document_number: order.order_number ?? '',
+      source_document_id: order.id,
       template_version: null,
       snapshot: null,
       cancelled_at: '',

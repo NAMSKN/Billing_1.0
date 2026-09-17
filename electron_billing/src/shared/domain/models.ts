@@ -1,5 +1,12 @@
 import type Decimal from 'decimal.js';
-import type { InvoiceStatus, PaymentStatus, TaxType, TaxTreatment } from './enums';
+import type {
+  InvoiceKind,
+  InvoiceStatus,
+  LineItemType,
+  PaymentStatus,
+  TaxType,
+  TaxTreatment,
+} from './enums';
 
 /**
  * Domain models (faithful port of Python `domain/models.py`). Monetary and
@@ -75,6 +82,10 @@ export interface Customer {
 export interface InvoiceLine {
   id: string;
   sequence: number;
+  /** PRODUCT or SERVICE. Preserved across order->invoice conversion. */
+  item_type: LineItemType;
+  /** Optional link to the catalogue item this line was prefilled from. */
+  product_id: string | null;
   job_or_mould_reference: string;
   component_or_part: string;
   operation: string;
@@ -139,6 +150,7 @@ export interface InvoiceReferences {
 }
 
 export interface InvoiceSnapshot {
+  kind: InvoiceKind;
   company: Company;
   customer: Customer;
   bill_to: Address;
@@ -150,10 +162,14 @@ export interface InvoiceSnapshot {
   tax_summary: TaxSummaryRow[];
   tax_rate_config: TaxRateConfig;
   payment_terms: string;
+  payment_mode: string;
+  payment_type: string;
   due_date: string;
   notes: string;
   terms: string;
   declaration: string;
+  source_document_type: string;
+  source_document_number: string;
   grand_total_words: string;
   tax_amount_words: string;
   logo_asset_id: string | null;
@@ -162,21 +178,34 @@ export interface InvoiceSnapshot {
 
 export interface Invoice {
   id: string;
+  /** The invoice kind: drives numbering prefix, PDF title, and billing party. */
+  kind: InvoiceKind;
   invoice_number: string | null;
   status: InvoiceStatus;
   payment_status: PaymentStatus;
   invoice_date: string;
   company_id: string | null;
+  /** Customer id for SALES/JOB_WORK/CUSTOM; null for a PURCHASE invoice. */
   customer_id: string | null;
+  /** Vendor (party) id for a PURCHASE invoice; null otherwise. */
+  party_id: string | null;
   place_of_supply: PlaceOfSupply;
   references: InvoiceReferences;
   lines: InvoiceLine[];
   totals: InvoiceTotals | null;
   payment_terms: string;
+  /** Mode / terms of payment (free text, e.g. "30 days", "NEFT"). */
+  payment_mode: string;
+  /** Payment type label (e.g. "Cash", "Credit", "UPI"). */
+  payment_type: string;
   due_date: string;
   notes: string;
   terms: string;
   declaration: string;
+  /** Source document that generated this invoice (reference only). */
+  source_document_type: string;
+  source_document_number: string;
+  source_document_id: string | null;
   template_version: number | null;
   snapshot: InvoiceSnapshot | null;
   cancelled_at: string;

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { Money } from '@shared/domain/money';
 import { PartyType, RegistrationType, emptyPartyAddress } from '@shared/domain/party';
-import { InvoiceStatus, TaxTreatment, TaxType } from '@shared/domain/enums';
+import { InvoiceKind, InvoiceStatus, TaxTreatment, TaxType } from '@shared/domain/enums';
 import type { Company } from '@shared/domain/models';
 import {
   OrderType,
@@ -287,11 +287,15 @@ describe('duplicate + convert to invoice', () => {
     expect(reloaded.converted_invoice_id).toBe(invoice.id);
   });
 
-  it('a purchase order cannot be converted to an invoice in V1', () => {
+  it('a purchase order converts to a PURCHASE invoice draft against the vendor', () => {
     const o = app.orderService.confirm(draftWith([line('100')], OrderType.PURCHASE_ORDER).id, {
       orderDate: new Date(2026, 5, 1),
     });
-    expect(() => app.orderService.convertToInvoice(o.id)).toThrow(OrderServiceError);
+    const inv = app.orderService.convertToInvoice(o.id);
+    expect(inv.kind).toBe(InvoiceKind.PURCHASE);
+    expect(inv.party_id).toBe(partyId);
+    expect(inv.customer_id).toBeNull();
+    expect(inv.status).toBe(InvoiceStatus.DRAFT);
   });
 
   it('a draft (not confirmed) cannot be converted', () => {

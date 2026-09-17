@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { Money } from '@shared/domain/money';
-import { PaymentStatus, TaxTreatment } from '@shared/domain/enums';
+import { LineItemType, PaymentStatus, TaxTreatment } from '@shared/domain/enums';
 import { ItemType, StockType, DiscountType, CessType } from '@shared/domain/product';
 import { emptyAddress } from '@shared/domain/models';
 import type { Company, Customer, InvoiceLine } from '@shared/domain/models';
@@ -58,6 +58,8 @@ function line(desc: string, qty: string, rate: string): InvoiceLine {
   return {
     id: uuidv4(),
     sequence: 0,
+    item_type: LineItemType.PRODUCT,
+    product_id: null,
     job_or_mould_reference: '',
     component_or_part: '',
     operation: '',

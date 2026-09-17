@@ -26,6 +26,8 @@ interface ChallanRow {
   reason_for_eway: string;
   delivery_mode: string;
   vehicle_no: string;
+  source_order_number: string;
+  source_order_id: string | null;
   party_name: string;
   party_gstin: string;
   party_pan: string;
@@ -145,6 +147,8 @@ function rowToChallan(row: ChallanRow, lines: ChallanLine[]): Challan {
     reason_for_eway: row.reason_for_eway,
     delivery_mode: row.delivery_mode,
     vehicle_no: row.vehicle_no,
+    source_order_number: row.source_order_number,
+    source_order_id: parseUuid(row.source_order_id),
     lines,
     totals,
     notes: row.notes,
@@ -192,7 +196,7 @@ export class SqliteChallanRepository implements ChallanRepository {
         `INSERT INTO challans (
            id, company_id, party_id, status, direction, challan_type, challan_number,
            challan_date, place_of_supply_state, place_of_supply_code, reverse_charge,
-           reason_for_eway, delivery_mode, vehicle_no,
+           reason_for_eway, delivery_mode, vehicle_no, source_order_number, source_order_id,
            party_name, party_gstin, party_pan, party_phone, party_contact_person,
            party_address_line, party_state_name, party_state_code, party_godown,
            ship_line, ship_state_name, ship_state_code, ship_godown,
@@ -203,7 +207,7 @@ export class SqliteChallanRepository implements ChallanRepository {
          ) VALUES (
            @id, @company_id, @party_id, @status, @direction, @challan_type, @challan_number,
            @challan_date, @pos_state, @pos_code, @reverse_charge,
-           @reason_for_eway, @delivery_mode, @vehicle_no,
+           @reason_for_eway, @delivery_mode, @vehicle_no, @source_order_number, @source_order_id,
            @party_name, @party_gstin, @party_pan, @party_phone, @party_contact_person,
            @party_address_line, @party_state_name, @party_state_code, @party_godown,
            @ship_line, @ship_state_name, @ship_state_code, @ship_godown,
@@ -218,6 +222,7 @@ export class SqliteChallanRepository implements ChallanRepository {
            place_of_supply_state=@pos_state, place_of_supply_code=@pos_code,
            reverse_charge=@reverse_charge, reason_for_eway=@reason_for_eway,
            delivery_mode=@delivery_mode, vehicle_no=@vehicle_no,
+           source_order_number=@source_order_number, source_order_id=@source_order_id,
            party_name=@party_name, party_gstin=@party_gstin, party_pan=@party_pan,
            party_phone=@party_phone, party_contact_person=@party_contact_person,
            party_address_line=@party_address_line, party_state_name=@party_state_name,
@@ -247,6 +252,8 @@ export class SqliteChallanRepository implements ChallanRepository {
         reason_for_eway: challan.reason_for_eway,
         delivery_mode: challan.delivery_mode,
         vehicle_no: challan.vehicle_no,
+        source_order_number: challan.source_order_number,
+        source_order_id: challan.source_order_id ? toCanonicalUuid(challan.source_order_id) : null,
         party_name: challan.party.name,
         party_gstin: challan.party.gstin,
         party_pan: challan.party.pan,

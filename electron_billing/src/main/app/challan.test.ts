@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { Money } from '@shared/domain/money';
 import { PartyType, RegistrationType, emptyPartyAddress } from '@shared/domain/party';
-import { InvoiceStatus, TaxTreatment, TaxType } from '@shared/domain/enums';
+import { InvoiceStatus, LineItemType, TaxTreatment, TaxType } from '@shared/domain/enums';
 import type { Company } from '@shared/domain/models';
 import {
   ChallanDirection,
@@ -195,6 +195,8 @@ describe('finalize computes totals through the shared engine + DC numbering', ()
         {
           id: uuidv4(),
           sequence: 0,
+          item_type: LineItemType.PRODUCT,
+          product_id: null,
           job_or_mould_reference: '',
           component_or_part: '',
           operation: '',

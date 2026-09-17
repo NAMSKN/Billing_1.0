@@ -60,6 +60,7 @@ export interface ChallanRenderDTO {
   reason_for_eway: string;
   delivery_mode: string;
   vehicle_no: string;
+  source_order_number: string;
   is_intra_state: boolean;
   cancelled: boolean;
   company: RenderParty;
@@ -159,6 +160,7 @@ export function buildChallanRenderDto(challan: Challan): ChallanRenderDTO {
     reason_for_eway: snap.reason_for_eway,
     delivery_mode: snap.delivery_mode,
     vehicle_no: snap.vehicle_no,
+    source_order_number: snap.source_order_number ?? '',
     is_intra_state: intra,
     cancelled: challan.status === 'CANCELLED',
     company: companyParty(snap.company),

@@ -1,4 +1,11 @@
-import type { InvoiceStatus, PaymentStatus, TaxType, TaxTreatment } from './domain/enums';
+import type {
+  InvoiceKind,
+  InvoiceStatus,
+  LineItemType,
+  PaymentStatus,
+  TaxType,
+  TaxTreatment,
+} from './domain/enums';
 
 /**
  * Wire DTOs crossing the IPC boundary. Every monetary/numeric value is a
@@ -46,6 +53,8 @@ export interface CustomerDto {
 export interface InvoiceLineDto {
   id: string;
   sequence: number;
+  item_type: LineItemType;
+  product_id: string | null;
   job_or_mould_reference: string;
   component_or_part: string;
   operation: string;
@@ -110,21 +119,28 @@ export interface TaxSummaryRowDto {
 
 export interface InvoiceDto {
   id: string;
+  kind: InvoiceKind;
   invoice_number: string | null;
   status: InvoiceStatus;
   payment_status: PaymentStatus;
   invoice_date: string;
   company_id: string | null;
   customer_id: string | null;
+  party_id: string | null;
   place_of_supply: PlaceOfSupplyDto;
   references: InvoiceReferencesDto;
   lines: InvoiceLineDto[];
   totals: InvoiceTotalsDto | null;
   payment_terms: string;
+  payment_mode: string;
+  payment_type: string;
   due_date: string;
   notes: string;
   terms: string;
   declaration: string;
+  source_document_type: string;
+  source_document_number: string;
+  source_document_id: string | null;
   template_version: number | null;
   cancelled_at: string;
   cancel_reason: string;
