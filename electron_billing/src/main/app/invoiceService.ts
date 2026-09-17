@@ -280,7 +280,16 @@ export class InvoiceService {
   }
 
   deleteDraft(invoiceId: string): void {
-    withImmediateTransaction(this.db, () => this.invoices.deleteDraft(invoiceId));
+    withImmediateTransaction(this.db, () => {
+      // An order that was converted into this invoice references it via
+      // orders.converted_invoice_id. Clear that link first so deleting the
+      // (still-draft) invoice never trips the foreign key; the source order
+      // simply becomes convertible again.
+      this.db
+        .prepare('UPDATE orders SET converted_invoice_id = NULL WHERE converted_invoice_id = ?')
+        .run(invoiceId);
+      this.invoices.deleteDraft(invoiceId);
+    });
   }
 
   // --- helpers ---

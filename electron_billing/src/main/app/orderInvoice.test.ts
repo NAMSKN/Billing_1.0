@@ -231,6 +231,21 @@ describe('per-kind numbering is independent', () => {
   });
 });
 
+describe('deleting a converted invoice draft', () => {
+  it('succeeds and unlinks the source order (no FK failure)', () => {
+    const order = confirmedOrder([line('100')], OrderType.SALES_ORDER);
+    const draft = app.orderService.convertToInvoice(order.id);
+    expect(app.orderService.get(order.id)!.converted_invoice_id).toBe(draft.id);
+
+    // Must not trip the orders.converted_invoice_id foreign key.
+    expect(() => app.invoiceService.deleteDraft(draft.id)).not.toThrow();
+
+    expect(app.invoiceService.get(draft.id)).toBeNull();
+    // The order is convertible again.
+    expect(app.orderService.get(order.id)!.converted_invoice_id).toBeNull();
+  });
+});
+
 describe('conversion guards', () => {
   it('a DRAFT order (not confirmed) cannot be converted', () => {
     const draft = app.orderService.createDraft();
