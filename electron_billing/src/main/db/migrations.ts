@@ -493,6 +493,104 @@ ALTER TABLE challans ADD COLUMN vehicle_no TEXT NOT NULL DEFAULT '';
 `,
 };
 
+/**
+ * Migration 0008: Order documents (Sales Order / Purchase Order / Service
+ * Request). A pre-invoice document whose counterparty is a customer or a vendor
+ * and whose lines may be products or services. Reuses the shared
+ * `invoice_sequences` table for numbering (own prefix per type), the calc
+ * engine, and the immutable-snapshot model. order_number is NULL until CONFIRMED;
+ * a partial UNIQUE index makes issued numbers unique. Deleting a draft cascades
+ * to its line items. Money paise, quantity millis, percent hundredths.
+ */
+const MIGRATION_0008: Migration = {
+  version: 8,
+  name: 'orders',
+  sql: `
+CREATE TABLE orders (
+    id                      TEXT PRIMARY KEY NOT NULL,
+    company_id              TEXT REFERENCES companies(id),
+    party_id                TEXT REFERENCES parties(id),
+    order_type              TEXT NOT NULL DEFAULT 'SALES_ORDER'
+                                CHECK (order_type IN
+                                    ('SALES_ORDER', 'PURCHASE_ORDER', 'SERVICE_REQUEST')),
+    status                  TEXT NOT NULL DEFAULT 'DRAFT'
+                                CHECK (status IN ('DRAFT', 'CONFIRMED', 'COMPLETED', 'CANCELLED')),
+    order_number            TEXT,
+    order_date              TEXT NOT NULL DEFAULT '',
+    place_of_supply_state   TEXT NOT NULL DEFAULT '',
+    place_of_supply_code    TEXT NOT NULL DEFAULT '',
+    reverse_charge          INTEGER NOT NULL DEFAULT 0 CHECK (reverse_charge IN (0, 1)),
+    delivery_mode           TEXT NOT NULL DEFAULT '',
+
+    party_name              TEXT NOT NULL DEFAULT '',
+    party_gstin             TEXT NOT NULL DEFAULT '',
+    party_pan               TEXT NOT NULL DEFAULT '',
+    party_phone             TEXT NOT NULL DEFAULT '',
+    party_contact_person    TEXT NOT NULL DEFAULT '',
+    party_address_line      TEXT NOT NULL DEFAULT '',
+    party_state_name        TEXT NOT NULL DEFAULT '',
+    party_state_code        TEXT NOT NULL DEFAULT '',
+    party_godown            TEXT NOT NULL DEFAULT '',
+
+    ship_line               TEXT NOT NULL DEFAULT '',
+    ship_state_name         TEXT NOT NULL DEFAULT '',
+    ship_state_code         TEXT NOT NULL DEFAULT '',
+    ship_godown             TEXT NOT NULL DEFAULT '',
+
+    template_version        INTEGER,
+    notes                   TEXT NOT NULL DEFAULT '',
+    terms                   TEXT NOT NULL DEFAULT '',
+    document_note           TEXT NOT NULL DEFAULT '',
+
+    total_taxable_paise     INTEGER NOT NULL DEFAULT 0,
+    total_cgst_paise        INTEGER NOT NULL DEFAULT 0,
+    total_sgst_paise        INTEGER NOT NULL DEFAULT 0,
+    total_igst_paise        INTEGER NOT NULL DEFAULT 0,
+    raw_total_paise         INTEGER NOT NULL DEFAULT 0,
+    round_off_paise         INTEGER NOT NULL DEFAULT 0,
+    grand_total_paise       INTEGER NOT NULL DEFAULT 0,
+    snapshot_json           TEXT,
+    converted_invoice_id    TEXT REFERENCES invoices(id),
+    cancelled_at            TEXT NOT NULL DEFAULT '',
+    cancel_reason           TEXT NOT NULL DEFAULT '',
+    created_at              TEXT NOT NULL DEFAULT '',
+    updated_at              TEXT NOT NULL DEFAULT ''
+);
+
+CREATE UNIQUE INDEX ux_orders_order_number
+    ON orders (order_number)
+    WHERE order_number IS NOT NULL;
+
+CREATE INDEX ix_orders_party_id ON orders (party_id);
+CREATE INDEX ix_orders_order_type ON orders (order_type);
+
+CREATE TABLE order_items (
+    id                     TEXT PRIMARY KEY NOT NULL,
+    order_id               TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    sequence               INTEGER NOT NULL DEFAULT 0,
+    item_type              TEXT NOT NULL DEFAULT 'PRODUCT'
+                               CHECK (item_type IN ('PRODUCT', 'SERVICE')),
+    product_id             TEXT REFERENCES products(id),
+    description            TEXT NOT NULL DEFAULT '',
+    hsn_sac                TEXT NOT NULL DEFAULT '',
+    quantity_millis        INTEGER NOT NULL DEFAULT 0,
+    unit                   TEXT NOT NULL DEFAULT '',
+    rate_paise             INTEGER NOT NULL DEFAULT 0,
+    discount_hundredths    INTEGER NOT NULL DEFAULT 0,
+    tax_treatment          TEXT NOT NULL DEFAULT 'TAXABLE'
+                               CHECK (tax_treatment IN ('TAXABLE')),
+    tax_rate_hundredths    INTEGER NOT NULL DEFAULT 0,
+    note                   TEXT NOT NULL DEFAULT '',
+    taxable_paise          INTEGER,
+    cgst_paise             INTEGER,
+    sgst_paise             INTEGER,
+    igst_paise             INTEGER
+);
+
+CREATE INDEX ix_order_items_order_id ON order_items (order_id);
+`,
+};
+
 const MIGRATIONS: Migration[] = [
   MIGRATION_0001,
   MIGRATION_0003,
@@ -500,6 +598,7 @@ const MIGRATIONS: Migration[] = [
   MIGRATION_0005,
   MIGRATION_0006,
   MIGRATION_0007,
+  MIGRATION_0008,
 ];
 
 export function applyPending(db: Database.Database): void {

@@ -60,6 +60,20 @@ export const IpcChannel = {
   ChallanPdfPreview: 'challan:pdfPreview',
   ChallanPdfExport: 'challan:pdfExport',
 
+  // Orders (Sales Order / Purchase Order / Service Request)
+  OrderCreateDraft: 'order:createDraft',
+  OrderSaveDraft: 'order:saveDraft',
+  OrderGet: 'order:get',
+  OrderListSummaries: 'order:listSummaries',
+  OrderConfirm: 'order:confirm',
+  OrderComplete: 'order:complete',
+  OrderCancel: 'order:cancel',
+  OrderDuplicate: 'order:duplicate',
+  OrderDeleteDraft: 'order:deleteDraft',
+  OrderConvertToInvoice: 'order:convertToInvoice',
+  OrderPdfPreview: 'order:pdfPreview',
+  OrderPdfExport: 'order:pdfExport',
+
   // Backup / restore
   BackupCreate: 'backup:create',
   BackupRestore: 'backup:restore',

@@ -7,6 +7,7 @@ import type {
   TaxRateConfig,
 } from './models';
 import type { Challan } from './challan';
+import type { Order } from './order';
 import type { NumberingConfig } from './numbering';
 
 /**
@@ -39,6 +40,13 @@ export interface ChallanRepository {
   get(id: string): Challan | null;
   listSummaries(): Challan[];
   save(challan: Challan): void;
+  deleteDraft(id: string): void;
+}
+
+export interface OrderRepository {
+  get(id: string): Order | null;
+  listSummaries(): Order[];
+  save(order: Order): void;
   deleteDraft(id: string): void;
 }
 

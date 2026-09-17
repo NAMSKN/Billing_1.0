@@ -10,6 +10,7 @@ import {
   Package,
   Boxes,
   Truck,
+  ClipboardList,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from './lib/cn';
@@ -24,6 +25,9 @@ import { InvoiceHistory } from './screens/InvoiceHistory';
 import { InvoiceEditor } from './screens/InvoiceEditor';
 import { ChallanHistory } from './screens/ChallanHistory';
 import { ChallanEditor } from './screens/ChallanEditor';
+import { OrderHistory } from './screens/OrderHistory';
+import { OrderEditor } from './screens/OrderEditor';
+import type { OrderType } from '@shared/domain/order';
 import { Settings } from './screens/Settings';
 
 /**
@@ -40,6 +44,8 @@ export type Route =
   | { name: 'invoice'; id: string }
   | { name: 'challans' }
   | { name: 'challan'; id: string }
+  | { name: 'orders' }
+  | { name: 'order'; id: string; orderType?: OrderType }
   | { name: 'settings' };
 
 type NavItem = { name: Route['name']; label: string; icon: typeof LayoutDashboard };
@@ -47,6 +53,7 @@ type NavItem = { name: Route['name']; label: string; icon: typeof LayoutDashboar
 const BASE_NAV: NavItem[] = [
   { name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { name: 'history', label: 'Invoices', icon: FileText },
+  { name: 'orders', label: 'Orders', icon: ClipboardList },
   { name: 'challans', label: 'Delivery Challans', icon: Truck },
   { name: 'customers', label: 'Customers / Vendors', icon: Users },
   { name: 'products', label: 'Products / Services', icon: Package },
@@ -120,7 +127,8 @@ function Shell() {
             const active =
               route.name === item.name ||
               (item.name === 'history' && route.name === 'invoice') ||
-              (item.name === 'challans' && route.name === 'challan');
+              (item.name === 'challans' && route.name === 'challan') ||
+              (item.name === 'orders' && route.name === 'order');
             const Icon = item.icon;
             return (
               <button
@@ -172,6 +180,21 @@ function Shell() {
             <ChallanEditor
               challanId={route.id}
               onDone={() => setRoute({ name: 'challans' })}
+            />
+          )}
+          {route.name === 'orders' && (
+            <OrderHistory
+              onOpen={(id) => setRoute({ name: 'order', id })}
+              onNew={(orderType) => setRoute({ name: 'order', id: 'new', orderType })}
+              onOpenInvoice={(id) => setRoute({ name: 'invoice', id })}
+            />
+          )}
+          {route.name === 'order' && (
+            <OrderEditor
+              orderId={route.id}
+              orderType={route.orderType}
+              onDone={() => setRoute({ name: 'orders' })}
+              onOpenInvoice={(id) => setRoute({ name: 'invoice', id })}
             />
           )}
           {route.name === 'settings' && <Settings />}

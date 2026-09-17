@@ -4,6 +4,7 @@ import { SqliteCompanyRepository } from '../db/companyRepository';
 import { SqliteCustomerRepository } from '../db/customerRepository';
 import { SqliteInvoiceRepository } from '../db/invoiceRepository';
 import { SqliteChallanRepository } from '../db/challanRepository';
+import { SqliteOrderRepository } from '../db/orderRepository';
 import { SqliteSequenceRepository } from '../db/sequenceRepository';
 import { SqliteSettingsRepository } from '../db/settingsRepository';
 import { SqliteAssetRepository } from '../db/assetRepository';
@@ -23,6 +24,7 @@ import { NumberingService } from './numberingService';
 import { SettingsService } from './settingsService';
 import { InvoiceService } from './invoiceService';
 import { ChallanService } from './challanService';
+import { OrderService } from './orderService';
 import { MetadataReconciliationGate } from './reconciliationGate';
 import { ReconciliationService } from './reconciliationService';
 import { PdfService } from '../pdf/pdfService';
@@ -44,6 +46,7 @@ export interface Application {
   numberingService: NumberingService;
   invoiceService: InvoiceService;
   challanService: ChallanService;
+  orderService: OrderService;
   pdfService: PdfService;
   reconciliationService: ReconciliationService;
   partyService: PartyService;
@@ -126,6 +129,22 @@ export function buildApplicationFromDb(
     clock,
   );
 
+  // Orders (Sales Order / Purchase Order / Service Request). Confirmed sales
+  // orders and service requests can be converted into a NEW invoice draft
+  // (tax recalculated at finalize); the source order stays a reference.
+  const orderRepo = new SqliteOrderRepository(db);
+  const orderService = new OrderService(
+    db,
+    orderRepo,
+    companyRepo,
+    partyRepo,
+    invoiceService,
+    numberingService,
+    settingsService,
+    ids,
+    clock,
+  );
+
   // Product / Service master. Independent master data; the product row never
   // stores GST calculations (the engine owns those) and never rewrites
   // finalized invoice snapshots.
@@ -153,6 +172,7 @@ export function buildApplicationFromDb(
     numberingService,
     invoiceService,
     challanService,
+    orderService,
     pdfService,
     reconciliationService,
     partyService,

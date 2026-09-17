@@ -25,6 +25,14 @@ import { ChallanFinalizationError } from './app/challanService';
 import { challanFromDto, challanToDto } from './app/challanDtoMappers';
 import type { ChallanDto } from '@shared/challanDto';
 import { ChallanPdfService } from './pdf/challanPdfService';
+import {
+  OrderServiceError,
+  OrderTransitionError,
+  OrderConfirmError,
+} from './app/orderService';
+import { orderFromDto, orderToDto } from './app/orderDtoMappers';
+import type { OrderDto } from '@shared/orderDto';
+import { OrderPdfService } from './pdf/orderPdfService';
 import { PartyValidationError, DuplicatePartyError } from './app/partyService';
 import { partyToDto, partyInputFromDto, groupToDto } from './app/partyDtoMappers';
 import { PartyExcelImporter, type ImportPreview } from './party/excelImport';
@@ -62,9 +70,17 @@ import { randomUUID } from 'node:crypto';
  */
 export function registerIpcHandlers(paths: AppPaths): Application {
   const application = buildApplication(paths.databaseFile);
-  const { invoiceService, challanService, companyRepo, customerRepo, settingsService, pdfService } =
-    application;
+  const {
+    invoiceService,
+    challanService,
+    orderService,
+    companyRepo,
+    customerRepo,
+    settingsService,
+    pdfService,
+  } = application;
   const challanPdfService = new ChallanPdfService();
+  const orderPdfService = new OrderPdfService();
 
   handle<string>(IpcChannel.Ping, async () => 'pong');
   handle<AppInfo>(IpcChannel.AppInfo, async () => ({
@@ -325,6 +341,119 @@ export function registerIpcHandlers(paths: AppPaths): Application {
       target = result.filePath;
     }
     return challanPdfService.export(challan, target);
+  });
+
+  // --- Orders (Sales Order / Purchase Order / Service Request) ---
+  handle(IpcChannel.OrderCreateDraft, async () => orderToDto(orderService.createDraft()));
+
+  handle(IpcChannel.OrderSaveDraft, async (payload) => {
+    const order = orderFromDto(payload as OrderDto);
+    orderService.saveDraft(order);
+    return { order: orderToDto(orderService.get(order.id)!) };
+  });
+
+  handle(IpcChannel.OrderGet, async (id) => {
+    const o = orderService.get(id as string);
+    return o ? orderToDto(o) : null;
+  });
+
+  handle(IpcChannel.OrderListSummaries, async () =>
+    orderService.listSummaries().map(orderToDto),
+  );
+
+  handle(IpcChannel.OrderConfirm, async (payload) => {
+    const p = payload as { id: string; orderDate: string };
+    try {
+      const o = orderService.confirm(p.id, { orderDate: new Date(p.orderDate), today: new Date() });
+      return orderToDto(o);
+    } catch (err) {
+      if (err instanceof OrderConfirmError && err.issues?.length) {
+        throw new IpcThrown(
+          'ORDER_CONFIRM_BLOCKED',
+          err.message,
+          err.issues.map((message) => ({ field: '', message, severity: 'blocking' as const })),
+        );
+      }
+      if (err instanceof OrderTransitionError) {
+        throw new IpcThrown('ORDER_TRANSITION_INVALID', err.message);
+      }
+      throw err;
+    }
+  });
+
+  handle(IpcChannel.OrderComplete, async (id) => {
+    try {
+      return orderToDto(orderService.complete(id as string));
+    } catch (err) {
+      if (err instanceof OrderTransitionError) {
+        throw new IpcThrown('ORDER_TRANSITION_INVALID', err.message);
+      }
+      throw err;
+    }
+  });
+
+  handle(IpcChannel.OrderCancel, async (payload) => {
+    const p = payload as { id: string; reason: string };
+    try {
+      return orderToDto(orderService.cancel(p.id, p.reason, new Date()));
+    } catch (err) {
+      if (err instanceof OrderTransitionError) {
+        throw new IpcThrown('ORDER_TRANSITION_INVALID', err.message);
+      }
+      throw err;
+    }
+  });
+
+  handle(IpcChannel.OrderDuplicate, async (id) => orderToDto(orderService.duplicate(id as string)));
+
+  handle(IpcChannel.OrderDeleteDraft, async (id) => {
+    orderService.deleteDraft(id as string);
+    return true;
+  });
+
+  handle(IpcChannel.OrderConvertToInvoice, async (id) => {
+    try {
+      const invoice = orderService.convertToInvoice(id as string);
+      return { invoiceId: invoice.id };
+    } catch (err) {
+      if (err instanceof OrderServiceError) {
+        throw new IpcThrown('ORDER_CONVERT_BLOCKED', err.message);
+      }
+      throw err;
+    }
+  });
+
+  handle(IpcChannel.OrderPdfPreview, async (id) => {
+    const order = orderService.get(id as string);
+    if (order === null) throw new Error('order not found');
+    const pdf = await orderPdfService.render(order);
+    const previewDir = join(paths.dataDir, 'previews');
+    await mkdir(previewDir, { recursive: true });
+    const file = join(previewDir, `order_preview_${order.id}.pdf`);
+    await writeFile(file, pdf);
+    const err = await shell.openPath(file);
+    if (err) throw new Error(err);
+    return file;
+  });
+
+  handle(IpcChannel.OrderPdfExport, async (payload) => {
+    const p = payload as { id: string; savePath?: string };
+    const order = orderService.get(p.id);
+    if (order === null) throw new Error('order not found');
+    if (!order.order_number) throw new Error('only confirmed orders can be exported');
+
+    let target = p.savePath;
+    if (!target) {
+      const defaultPath = OrderPdfService.defaultExportPath(paths.exportsDir, order.order_number);
+      const result = await dialog.showSaveDialog({
+        title: 'Export Order PDF',
+        defaultPath,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+      if (result.canceled || !result.filePath) throw new Error('export cancelled');
+      target = result.filePath;
+    }
+    return orderPdfService.export(order, target);
   });
 
   // --- Backup / restore ---
