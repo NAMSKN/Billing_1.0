@@ -220,3 +220,22 @@
 - **Decision:** Customer and vendor opening balances are `Decimal` in the domain and persisted as integer paise, consistent with all other money (D-004). Balance direction is an explicit `DEBIT`/`CREDIT` type. No ledger is built in this feature; balances are stored cleanly for later payment/ledger modules to consume.
 - **Rationale:** Client requirement (V2 F1 section 13) and the money-handling coding standard (never float).
 - **Consequences:** `parties.customer_balance_paise` / `vendor_balance_paise` are INTEGER; amounts round-trip exactly.
+
+### D-030: Canonical unit-of-measure vocabulary
+
+- **Decision:** Product and document line-item units of measure are restricted to a canonical set: `mm`, `inch`, `cm`, `nos`. Units are stored/compared as the lowercase code; the default is `nos`. A normaliser maps legacy/imported spellings (PCS, NOS, MM, INCHES…) onto the set; unknown values are rejected at product validation and coerced to blank on import.
+- **Rationale:** Free-text units produced inconsistent, unprofessional documents. A fixed vocabulary keeps invoices, orders, and challans uniform.
+- **Consequences:** `src/shared/domain/units.ts` owns the enum + normaliser; product validation enforces membership; the product editor and all line-item editors use a dropdown. Already-finalized invoice snapshots keep their original units (immutability); the dropdown preserves an out-of-set legacy value so historical drafts still display it.
+
+### D-031: Dashboard low-stock uses live derived stock
+
+- **Decision:** The Dashboard low-stock panel derives availability from live current stock (Σ stock-movement deltas, `StockService.currentStockMap()`), the same source as the Manage Stock screen — not the static `opening_qty` master field. The panel shows the first 10 low items plus a total count.
+- **Rationale:** Using `opening_qty` made the Dashboard disagree with Manage Stock after any adjustment, hiding genuinely low items.
+- **Consequences:** `ReportService` depends on `StockService`; `DashboardReport` gains `low_stock_total`.
+
+### D-032: Receipt / Payment vouchers with confirmed-allocation-derived invoice status (supersedes D-015 for V1)
+
+- **Decision:** The app records money movement as standalone **Receipt** (inward, from a customer; may cite sales / job-work invoices) and **Payment** (outward, to a vendor; may cite purchase invoices) vouchers. A voucher may be allocated across **one or more** invoices, or left **unallocated** (advance / deposit / other). An invoice's `payment_status` (UNPAID / PARTIAL / PAID) and its outstanding balance are **derived from CONFIRMED allocations only**. Allocation requires **explicit user confirmation**; a draft allocation and an unallocated voucher never affect any invoice. Cancelling a voucher drops the effect of its allocations and re-derives the affected invoices.
+- **Rationale:** The business needs receipts and payments (including advances and payments spanning multiple vendor invoices). The user chose to derive invoice status/outstanding from confirmed allocations, which is more useful than a purely manual flag.
+- **Scope change:** This intentionally **supersedes D-015** ("no receipt/payment ledger or authoritative outstanding balances in V1"). Outstanding is now computed from confirmed allocations; it is still not a full accounting ledger (no journals, no reconciliation beyond invoice balances).
+- **Consequences:** New `payments` + `payment_allocations` tables (migration 0011), `PaymentService`, `PaymentRepository`, DTOs/IPC, a Receipt/Payment Voucher PDF, and Receipts/Payments UI screens. Vouchers reuse the shared numbering sequence with `RCPT` / `PAY` prefixes, are DRAFT→FINALIZED→CANCELLED, and reproduce from an immutable snapshot. Invoice `payment_status` is written by the payment service inside the confirming transaction; the manual `setPaymentStatus` path remains for direct overrides.

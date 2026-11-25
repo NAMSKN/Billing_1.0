@@ -124,3 +124,12 @@
   - **Evidence:** on the target Windows machine the check listed 4 installed printers — `OneNote (Desktop)`, `Microsoft Print to PDF`, `HP556D54 (HP LaserJet Pro MFP 4104)`, `HP LaserJet Pro MFP M226dw (A06A92)` — and the print code path executed successfully against `spikes/out/sample_invoice.pdf`.
   - **Documented limitation / deliberate choice:** a real physical print job was **not** force-triggered in the spike run, because the shell "print" verb targets the *default* printer and some targets (e.g. "Microsoft Print to PDF") open an interactive Save-As dialog. Triggering it would risk wasting paper or blocking on a prompt. The mechanism is proven at the code-path level and the environment has working printers; a one-off manual physical print can be done during end-to-end acceptance (Task 62).
   - **Decision for the adapter:** `infrastructure/printing/` will expose a `PrintPort` with a `WindowsPrintAdapter` using `os.startfile(path, "print")`; the port keeps platform-specific code out of the business layer (design section 24). This resolves the printing half of Q-015 at the mechanism level; the only remaining nuance (whether to add printer selection UI vs. always use the default printer) is a later UX decision, not a blocker.
+
+## Q-020: Receipt / Payment voucher — deferred sub-features (D-032)
+
+The Receipt/Payment voucher feature (DECISIONS D-032) is implemented with standalone vouchers, multi-invoice allocation, and confirmed-allocation-derived invoice status. A few sub-features seen in comparable hosted tools are intentionally deferred and remain open:
+
+- **Share via Email / SMS:** deferred. The app is offline-first (no network calls anywhere), so sending a voucher by email/SMS conflicts with a core product invariant. If ever added, it must be an explicit, user-initiated action outside the offline core.
+- **Attachments:** capturing a scanned cheque / proof image against a voucher is not yet modeled. Would reuse the versioned asset store (D-019) if added.
+- **Prefix / postfix editing per voucher:** voucher numbers use the shared numbering sequence with fixed `RCPT` / `PAY` prefixes. A configurable per-scope prefix/postfix (like the invoice numbering config) is a possible later enhancement.
+- **Partial-allocation UX:** the editor lets the user allocate less than the voucher amount and confirm; how prominently to surface the unallocated remainder (e.g. "on account" balance) is a UX refinement, not a correctness gap.

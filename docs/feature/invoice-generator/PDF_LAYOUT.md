@@ -152,16 +152,17 @@ Orientation: Portrait
 
 Use a normal printer-safe content area.
 
-Recommended starting margins:
+Margins (implementation baseline — all four sides equal):
 
 ```text
-Top:    12–15 mm
-Bottom: 12–15 mm
-Left:   12–15 mm
-Right:  12–15 mm
+Top:    12.7 mm (0.5 in / 36 pt)
+Bottom: 12.7 mm
+Left:   12.7 mm
+Right:  12.7 mm
 ```
 
-Exact measurements may be tuned during implementation and visual testing.
+This leaves a content area of 184.6 × 271.6 mm on A4. Exact measurements may be
+tuned during visual testing, but all four margins remain equal.
 
 Do not depend on edge-to-edge printing.
 
@@ -448,19 +449,23 @@ Never replace a long description with an ellipsis in the final invoice.
 
 Use a professional sans-serif font.
 
-Suggested starting hierarchy:
+Type hierarchy (implementation baseline — compact, print-readable scale):
 
 ```text
-Company Name       15–18 pt
-TAX INVOICE        15–18 pt
-Section Heading    9–10 pt bold
-Table Header       8–9 pt bold
-Table Body         8–9 pt
-Legal/Terms        7.5–8.5 pt
-Footer             7–8 pt
+TAX INVOICE        11 pt bold
+Company Name        9 pt bold
+Section Heading     8 pt bold
+Party / Metadata    7.5–8 pt
+Table Header        7.5 pt bold
+Table Body          7.5 pt
+Important Values    8–9 pt bold (grand total 9 pt bold)
+Legal / Terms       7 pt
+Footer              7 pt
 ```
 
-These are starting values, not absolute requirements.
+The readable floor is 7 pt; no text renders below it. These are baseline
+values; if body text still reads too small in print, the whole scale may be
+stepped up one size rather than shrinking anything below the floor.
 
 The final size must be validated on a real A4 page.
 

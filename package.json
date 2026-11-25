@@ -1,5 +1,107 @@
 {
+  "name": "moulder-billing",
+  "version": "1.0.0",
+  "description": "Offline Windows-first GST tax invoice desktop app for a mould / mould-machining business",
+  "author": "Moulder Billing",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json && node scripts/copy-assets.mjs",
+    "build": "npm run build:main && npm run build:renderer",
+    "start": "electron .",
+    "test": "npm run rebuild:node && vitest run",
+    "test:watch": "vitest",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "typecheck": "tsc --noEmit -p tsconfig.renderer.json && tsc --noEmit -p tsconfig.main.json",
+    "lint": "eslint . --ext .ts,.tsx",
+    "dist": "npm run rebuild:electron && npm run build && electron-builder --win",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.moulder.billing",
+    "productName": "Moulder Billing",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**",
+      "dist-electron/main/data/**"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icons",
+        "to": "icons"
+      }
+    ],
+    "win": {
+      "icon": "build/icons/app-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "MoulderBilling-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icons/app-icon.ico",
+      "uninstallerIcon": "build/icons/app-icon.ico"
+    }
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "decimal.js": "^10.4.3",
+    "pdfkit": "^0.15.1",
+    "qrcode": "^1.5.4",
+    "recharts": "^3.10.1",
+    "tesseract.js": "^7.0.0",
+    "uuid": "^11.0.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
   "devDependencies": {
-    "@electron/rebuild": "^4.2.0"
+    "@electron/rebuild": "^4.2.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.7",
+    "@types/pdfkit": "^0.13.9",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "framer-motion": "^11.18.1",
+    "lucide-react": "^0.474.0",
+    "postcss": "^8.5.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^3.0.2"
   }
 }

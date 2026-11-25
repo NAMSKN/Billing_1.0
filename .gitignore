@@ -1,40 +1,15 @@
-# Byte-compiled / optimized / cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Distribution / packaging
-build/
+node_modules/
 dist/
-*.egg-info/
-*.egg
+dist-electron/
+release/
+*.log
+.DS_Store
+.vite/
+*.tsbuildinfo
 
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Test / coverage / type-check caches
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# Local application data (never commit user billing data)
+# Application data & databases (never commit user billing data)
 *.db
 *.sqlite
 *.sqlite3
-/exports/
 /backups/
-/logs/
-*.log
-
-# Generated spike artifacts
-/spikes/out/
-
-# Editor / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+/exports/
